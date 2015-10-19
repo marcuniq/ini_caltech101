@@ -1,0 +1,20 @@
+### python ###
+*.pyc
+
+### IPythonNotebook ###
+# Temporary data
+iPython Notebooks/.ipynb_checkpoints/
+
+### caffe ###
+*.caffemodel
+*.prototxt
+
+### numpy weights ###
+*.npy
+
+### keras weights ###
+*.hdf5
+
+### pycharm ###
+.idea/
+*.iml

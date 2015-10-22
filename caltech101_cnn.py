@@ -31,9 +31,9 @@ from ini_caltech101.keras_extensions.utils import generic_utils
 '''
 
 # parameters
-batch_size = 4
+batch_size = 16
 nb_classes = 102
-nb_epoch = 1
+nb_epoch = 20
 data_augmentation = False
 resize_imgs = False
 shuffle_data = True
@@ -48,7 +48,8 @@ image_dimensions = 3
 
 # load the data, shuffled and split between train and test sets
 print("Loading data...")
-(X_train, y_train), (X_test, y_test) = caltech101.load_data(resize=resize_imgs,
+path = os.path.expanduser(os.path.join('~', '.ini_caltech101', 'resized', '101_ObjectCategories'))
+(X_train, y_train), (X_test, y_test) = caltech101.load_data(path=path, resize=resize_imgs,
                                                             shapex=shapex, shapey=shapey,
                                                             train_imgs_per_category=25, test_imgs_per_category=3,
                                                             shuffle=shuffle_data)
@@ -75,7 +76,7 @@ if batch_normalization:
 else:
     weight_reg = 5e-4 # weight regularization value for l2
     dropout = True
-    lr = 0.001
+    lr = 0.003
     decay = 5e-4
 
     X_train_mean = np.mean(X_train, axis=0)
@@ -89,7 +90,7 @@ else:
 
 model = Sequential()
 conv1 = Convolution2D(64, 3, 3,
-                      subsample=(2, 2), # subsample = stride
+                      #subsample=(2, 2), # subsample = stride
                       b_constraint=zero(),
                       init='he_normal',
                       W_regularizer=l2(weight_reg),

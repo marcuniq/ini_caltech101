@@ -28,9 +28,9 @@ from ini_caltech101.keras_extensions.optimizers import INI_SGD
         THEANO_FLAGS=mode=FAST_RUN,device=gpu,floatX=float32 python caltech101_cnn_vgg.py
 '''
 
-batch_size = 4
+batch_size = 32
 nb_classes = 102
-nb_epoch = 10
+nb_epoch = 20
 data_augmentation = False
 
 # weight regularization value for l2
@@ -48,26 +48,29 @@ shuffle = True
 print("Loading data...")
 (X_train, y_train), (X_test, y_test) = caltech101.load_data(resize=resize,
                                                             shapex=shapex, shapey=shapey,
-                                                            train_imgs_per_category=15, test_imgs_per_category=3,
+                                                            train_imgs_per_category=25, test_imgs_per_category=3,
                                                             shuffle=shuffle)
 print('X_train shape:', X_train.shape)
 print(X_train.shape[0], 'train samples')
 print(X_test.shape[0], 'test samples')
 
-print("Loading weights...")
-np_vgg_cnn_s_fname = 'np_vgg_cnn_s.npy'
-try:
-    loaded_weights = np.load(np_vgg_cnn_s_fname)
-except IOError:
-    loaded_weights = caffe_to_numpy('vgg/VGG_CNN_S_deploy.prototxt', 'vgg/VGG_CNN_S.caffemodel',
-                                       params=['conv1', 'conv2', 'conv3', 'conv4', 'conv5'])
-    np.save(np_vgg_cnn_s_fname)
+
+# data preprocessing
+X_train = X_train.astype("float32")
+X_test = X_test.astype("float32")
+X_train /= 255
+X_test /= 255
+X_train = X_train - np.mean(X_train, axis=0)
+X_train = X_train / np.std(X_train, axis=0)
+X_test = X_test - np.mean(X_test, axis=0)
+X_test = X_test / np.std(X_test, axis=0)
+
 
 # cnn architecture
 model = Sequential()
 conv1 = Convolution2D(96, 7, 7, subsample=(2, 2), b_constraint=zero(), W_regularizer=l2(weight_reg),
-                      input_shape=(image_dimensions, shapex, shapey)) # subsample = stride
-conv1.set_weights(loaded_weights[0])
+                      input_shape=(image_dimensions, shapey, shapex)) # subsample = stride
+#conv1.set_weights(loaded_weights[0])
 model.add(conv1)
 
 model.add(Activation('relu'))
@@ -76,7 +79,6 @@ model.add(lnr1)
 model.add(MaxPooling2D(pool_size=(3, 3), stride=(3, 3)))
 
 conv2 = Convolution2D(256, 5, 5, b_constraint=zero(), W_regularizer=l2(weight_reg))
-conv2.set_weights(loaded_weights[1])
 model.add(conv2)
 
 model.add(Activation('relu'))
@@ -84,30 +86,14 @@ model.add(MaxPooling2D(pool_size=(2, 2), stride=(2, 2)))
 
 model.add(ZeroPadding2D(padding=(1, 1)))
 conv3 = Convolution2D(512, 3, 3, b_constraint=zero(), W_regularizer=l2(weight_reg))
-conv3.set_weights(loaded_weights[2])
 model.add(conv3)
-
 model.add(Activation('relu'))
 
-model.add(ZeroPadding2D(padding=(1, 1)))
-conv4 = Convolution2D(512, 3, 3, b_constraint=zero(), W_regularizer=l2(weight_reg))
-conv4.set_weights(loaded_weights[3])
-model.add(conv4)
-
-model.add(Activation('relu'))
-
-model.add(ZeroPadding2D(padding=(1, 1)))
-conv5 = Convolution2D(512, 3, 3, b_constraint=zero(), W_regularizer=l2(weight_reg))
-conv5.set_weights(loaded_weights[4])
-model.add(conv5)
-
-
-model.add(Activation('relu'))
 model.add(MaxPooling2D(pool_size=(3, 3), stride=(3, 3)))
 
 model.add(Flatten())
 
-model.add(Dense(2048, b_constraint=zero(), init='he_normal', W_regularizer=l2(weight_reg)))
+model.add(Dense(1024, b_constraint=zero(), init='he_normal', W_regularizer=l2(weight_reg)))
 model.add(Activation('relu'))
 model.add(Dropout(0.5))
 
@@ -115,17 +101,27 @@ model.add(Dense(nb_classes, b_constraint=zero(), init='he_normal', W_regularizer
 model.add(Activation('softmax'))
 
 print('Compiling model...')
-#sgd = SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
+sgd = SGD(lr=0.001, decay=5e-4, momentum=0.9, nesterov=True)
 # Experiments show that it seems best to set stepsize equal to 2 - 8 times the number of iterations in an epoch
 # but the final results are actually quite robust to stepsize
-stepsize = 6 * X_train.shape[0] / nb_epoch
-sgd = INI_SGD(lr_policy='triangular', lr=0.005, max_lr=0.01, momentum=0.9, stepsize=stepsize)
+#stepsize = 6 * X_train.shape[0] / nb_epoch
+#sgd = SGD(lr_policy='triangular', lr=0.005, max_lr=0.01, momentum=0.9, stepsize=stepsize)
 model.compile(loss='categorical_crossentropy', optimizer=sgd)
 
-X_train = X_train.astype("float32")
-X_test = X_test.astype("float32")
-X_train /= 255
-X_test /= 255
+
+print("Loading weights...")
+np_vgg_cnn_s_fname = 'np_vgg_cnn_s.npy'
+try:
+    loaded_weights = np.load(np_vgg_cnn_s_fname)
+except IOError:
+    loaded_weights = caffe_to_numpy('vgg/VGG_CNN_S_deploy.prototxt', 'vgg/VGG_CNN_S.caffemodel',
+                                    params=['conv1', 'conv2', 'conv3'])
+    np.save(np_vgg_cnn_s_fname, loaded_weights)
+
+model.layers[0].set_weights(loaded_weights[0])
+model.layers[4].set_weights(loaded_weights[1])
+model.layers[8].set_weights(loaded_weights[2])
+
 
 if not data_augmentation:
     print("Not using data augmentation or normalization")
@@ -142,12 +138,6 @@ if not data_augmentation:
     #                                          y_train[i*batch_size:(i+1)*batch_size], accuracy=True)
     #     print("test  -  batch: %d  -  loss: %f  -  acc: %f" % (i, loss, accuracy))
 
-    #early_stopping = EarlyStopping(monitor='val_loss', patience=2)
-    #lr_scheduler = INILearningRateScheduler(lr_policy='triangular', lr=0.005, max_lr=0.01, stepsize=stepsize)
-    #logger = INIBaseLogger()
-
-    lr_scheduler = INILearningRateScheduler(lr_policy='triangular', lr=0.005, max_lr=0.01, stepsize=100)
-
     hist = model.fit(X_train, y_train, batch_size=batch_size, nb_epoch=nb_epoch,
                      validation_split=0.1, show_accuracy=True,
                      #callbacks=[lr_scheduler]
@@ -158,9 +148,10 @@ if not data_augmentation:
     print('Test score:', score)
 
     dt = datetime.datetime.now()
-    open('results/vgg_{:%Y-%m-%d_%H3%M.%S}.json'.format(dt), 'w').write(model.to_json())
-    open('results/vgg_history_{:%Y-%m-%d_%H.%M.%S}.json'.format(dt), 'w').write(json.dumps(hist.history))
-    model.save_weights('results/vgg_weights_{:%Y-%m-%d_%H.%M.%S}.hdf5'.format(dt))
+    open('results/{:%Y-%m-%d_%H.%M.%S}_vgg_architecture.json'.format(dt), 'w').write(model.to_json())
+    open('results/{:%Y-%m-%d_%H.%M.%S}_vgg_history.json'.format(dt), 'w').write(json.dumps(hist.history))
+    open('results/{:%Y-%m-%d_%H.%M.%S}_vgg_test-score.json'.format(dt), 'w').write(json.dumps(score))
+    model.save_weights('results/{:%Y-%m-%d_%H.%M.%S}_vgg_weights.hdf5'.format(dt))
 
 else:
     print("Using real time data augmentation")

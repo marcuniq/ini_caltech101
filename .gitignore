@@ -1,3 +1,5 @@
+*.pyc
+
 ### IPythonNotebook ###
 # Temporary data
 iPython Notebooks/.ipynb_checkpoints/

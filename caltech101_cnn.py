@@ -30,9 +30,9 @@ from ini_caltech101.keras_extensions.utils import generic_utils
 '''
 
 # parameters
-batch_size = 16
+batch_size = 4
 nb_classes = 102
-nb_epoch = 50
+nb_epoch = 1
 data_augmentation = False
 resize_imgs = False
 shuffle_data = True
@@ -63,7 +63,7 @@ X_test /= 255
 
 
 # cnn architecture
-batch_normalization = True
+batch_normalization = False
 
 if batch_normalization:
     weight_reg = 5e-4 # weight regularization value for l2
@@ -86,7 +86,7 @@ else:
 
 model = Sequential()
 conv1 = Convolution2D(64, 3, 3,
-                      #subsample=(2, 2), # subsample = stride
+                      subsample=(2, 2), # subsample = stride
                       b_constraint=zero(),
                       init='he_normal',
                       W_regularizer=l2(weight_reg),

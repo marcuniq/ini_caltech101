@@ -63,7 +63,7 @@ X_test /= 255
 
 
 # cnn architecture
-batch_normalization = True
+batch_normalization = False
 
 if batch_normalization:
     weight_reg = 5e-4 # weight regularization value for l2
@@ -74,7 +74,7 @@ if batch_normalization:
 else:
     weight_reg = 5e-4 # weight regularization value for l2
     dropout = True
-    lr = 0.001
+    lr = 0.003
     decay = 5e-4
 
     X_train = X_train - np.mean(X_train, axis=0)

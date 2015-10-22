@@ -9,7 +9,7 @@ def load_data(path="", resize=True, shapex=240, shapey=180,
               shuffle=True):
     origin = "http://www.vision.caltech.edu/Image_Datasets/Caltech101/101_ObjectCategories.tar.gz"
     if not path:
-        path = get_file(origin=origin, untar=False)
+        path = get_file(origin=origin)
 
     if resize:
         path = resize_imgs(input_dir=path, shapex=shapex, shapey=shapey)

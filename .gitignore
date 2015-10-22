@@ -1,6 +1,3 @@
-### python ###
-*.pyc
-
 ### IPythonNotebook ###
 # Temporary data
 iPython Notebooks/.ipynb_checkpoints/
@@ -17,4 +14,5 @@ iPython Notebooks/.ipynb_checkpoints/
 
 ### pycharm ###
 .idea/
+
 *.iml

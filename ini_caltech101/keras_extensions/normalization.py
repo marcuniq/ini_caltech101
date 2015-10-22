@@ -44,7 +44,7 @@ class BatchNormalization(Layer):
             param_shape = (1, input_shape[1], 1, 1)
 
             # it has to be made broadcastable on the first axis
-            uniform = np.random.uniform(low=-0.05, high=0.05, size=param_shape)
+            uniform = np.random.uniform(low=0.95, high=1.05, size=param_shape)
             self.gamma = theano.shared(uniform.astype(theano.config.floatX),
                                        broadcastable=(True, False, True, True),
                                        borrow=True)

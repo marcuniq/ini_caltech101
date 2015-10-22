@@ -8,7 +8,7 @@ from six.moves.urllib.request import FancyURLopener
 import numpy as np
 
 
-def get_file(origin, untar=False):
+def get_file(origin):
     datadir = os.path.expanduser(os.path.join('~', '.ini_caltech101'))
     if not os.path.exists(datadir):
         os.makedirs(datadir)
@@ -23,12 +23,11 @@ def get_file(origin, untar=False):
         print('Downloading data from', origin)
         FancyURLopener().retrieve(origin, fpath)
 
-    if untar:
-        if not os.path.exists(untar_dir):
-            print('Untaring file...')
-            tfile = tarfile.open(fpath, 'r:gz')
-            tfile.extractall(path=untar_dir)
-            tfile.close()
+    if not os.path.exists(untar_dir):
+        print('Untaring file...')
+        tfile = tarfile.open(fpath, 'r:gz')
+        tfile.extractall(path=untar_dir)
+        tfile.close()
 
     return untar_dir
 
@@ -72,7 +71,7 @@ def resize_imgs(shapex, shapey, input_dir, output_dir=""):
 def load_samples(fpaths, label, train_imgs_per_category, test_imgs_per_category, max_width, max_height):
     np.random.shuffle(fpaths)
     if train_imgs_per_category + test_imgs_per_category > len(fpaths):
-        print("not enough samples for label " + label)
+        print("not enough samples for label %s" % label)
         sys.exit(1)
 
     train_labels = [ label for x in range(train_imgs_per_category)]

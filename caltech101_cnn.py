@@ -2,6 +2,7 @@ from __future__ import absolute_import
 from __future__ import print_function
 import json
 import datetime
+import os
 import numpy as np
 #np.random.seed(42) # make keras deterministic
 
@@ -77,11 +78,13 @@ else:
     lr = 0.001
     decay = 5e-4
 
-    X_train = X_train - np.mean(X_train, axis=0)
-    X_train = X_train / np.std(X_train, axis=0)
+    X_train_mean = np.mean(X_train, axis=0)
+    X_train = X_train - X_train_mean
+    X_train_std = np.std(X_train, axis=0)
+    X_train = X_train / X_train_std
 
-    X_test = X_test - np.mean(X_test, axis=0)
-    X_test = X_test / np.std(X_test, axis=0)
+    X_test = X_test - X_train_mean
+    X_test = X_test / X_train_std
 
 
 model = Sequential()

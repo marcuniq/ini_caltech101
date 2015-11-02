@@ -20,7 +20,7 @@ from ini_caltech101.dataset import caltech101
 from ini_caltech101.util.util import caffe_to_numpy
 from ini_caltech101.keras_extensions.constraints import zero
 from ini_caltech101.keras_extensions.callbacks import INILearningRateScheduler, INIBaseLogger
-from ini_caltech101.keras_extensions.optimizers import INI_SGD
+from ini_caltech101.keras_extensions.optimizers import INISGD
 
 '''
     Train a (fairly simple) deep CNN on the Caltech101 images dataset.
@@ -30,7 +30,7 @@ from ini_caltech101.keras_extensions.optimizers import INI_SGD
 
 batch_size = 32
 nb_classes = 102
-nb_epoch = 20
+nb_epoch = 100
 data_augmentation = False
 
 # weight regularization value for l2
@@ -173,6 +173,11 @@ else:
     # (std, mean, and principal components if ZCA whitening is applied)
     datagen.fit(X_train)
 
+    loss = []
+    acc = []
+    val_loss = []
+    val_acc = []
+
     for e in range(nb_epoch):
         print('-'*40)
         print('Epoch', e)
@@ -181,16 +186,22 @@ else:
         # batch train with realtime data augmentation
         progbar = generic_utils.Progbar(X_train.shape[0])
         for X_batch, Y_batch in datagen.flow(X_train, y_train, shuffle=True):
-            loss = model.train_on_batch(X_batch, Y_batch)
-            progbar.add(X_batch.shape[0], values=[("train loss", loss)])
+            (train_loss, train_acc) = model.train_on_batch(X_batch, Y_batch, accuracy=True)
+            loss += [train_loss]
+            acc += [train_acc]
+            progbar.add(X_batch.shape[0], values=[("loss", train_loss), ("acc", train_acc)])
 
         print("Testing...")
         # test time!
         progbar = generic_utils.Progbar(X_test.shape[0])
         for X_batch, Y_batch in datagen.flow(X_test, y_test, shuffle=True):
-            score = model.test_on_batch(X_batch, Y_batch)
-            progbar.add(X_batch.shape[0], values=[("test loss", score)])
+            (v_loss, v_acc) = model.test_on_batch(X_batch, Y_batch, accuracy=True)
+            val_loss += [v_loss]
+            val_acc += [v_acc]
+            progbar.add(X_batch.shape[0], values=[("test loss", v_loss), ("test acc", v_acc)])
 
+        history = {'loss': loss, 'acc': acc, 'val_loss': val_loss, 'val_acc': val_acc}
         dt = datetime.datetime.now()
-        open('results/vgg_datagen_{:%Y-%m-%d_%H3%M.%S}.json'.format(dt), 'w').write(model.to_json())
-        model.save_weights('results/vgg_datagen_weights_{:%Y-%m-%d_%H.%M.%S}.hdf5'.format(dt))
+        open('results/{:%Y-%m-%d_%H.%M.%S}_vgg_data-aug_architecture.json'.format(dt), 'w').write(model.to_json())
+        open('results/{:%Y-%m-%d_%H.%M.%S}_vgg_data-aug_history.json'.format(dt), 'w').write(json.dumps(history))
+        model.save_weights('results/{:%Y-%m-%d_%H.%M.%S}_vgg_data-aug_weights.hdf5'.format(dt))

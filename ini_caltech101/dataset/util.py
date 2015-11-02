@@ -8,8 +8,7 @@ from six.moves.urllib.request import FancyURLopener
 import numpy as np
 
 
-def get_file(origin):
-    datadir = os.path.expanduser(os.path.join('~', '.ini_caltech101'))
+def get_file(origin, datadir):
     if not os.path.exists(datadir):
         os.makedirs(datadir)
 
@@ -32,48 +31,66 @@ def get_file(origin):
     return untar_dir
 
 
-def resize_imgs(shapex, shapey, input_dir, output_dir=""):
-    print(input_dir)
-    print(output_dir)
-    if not output_dir:
-        output_dir = os.path.join(os.path.dirname(input_dir), 'resized')
+def resize_imgs(input_dir, output_dir, shapex, shapey, mode='contain', quality=90, verbose=1):
     try:
-        input_dir = os.path.join(input_dir, '101_ObjectCategories')
-        output_dir = os.path.join(output_dir, '101_ObjectCategories')
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+
         print("starting....")
         print("Collecting data from %s " % input_dir)
-        tclass = [d for d in os.listdir(input_dir)]
-        for x in tclass:
-            input_subdirs = os.path.join(input_dir, x)
-            output_subdirs = os.path.join(output_dir + '/', x + '/')
-            if not os.path.exists(output_subdirs):
-                os.makedirs(output_subdirs)
-            if os.path.exists(output_subdirs):
-                for d in os.listdir(input_subdirs):
+        for x in os.listdir(input_dir):
+            input_subdir = os.path.join(input_dir, x)
+            output_subdir = os.path.join(output_dir + '/', x + '/')
+            if not os.path.exists(output_subdir):
+                os.makedirs(output_subdir)
+            if os.path.exists(output_subdir):
+                for d in os.listdir(input_subdir):
                     try:
                         img = Image.open(os.path.join(input_dir + '/' + x, d))
-                        img = resizeimage.resize_contain(img, [shapex, shapey])
+                        if verbose > 0:
+                            print("Resizing file : %s - %s " % (x, d))
+
+                        if mode is 'contain':
+                            img = resizeimage.resize_contain(img, [shapex, shapey])
+                        elif mode is 'crop':
+                            img = resizeimage.resize_crop(img, [shapex, shapey])
+                        elif mode is 'cover':
+                            img = resizeimage.resize_cover(img, [shapex, shapey])
+                        elif mode is 'thumbnail':
+                            img = resizeimage.resize_thumbnail(img, [shapex, shapey])
+                        elif mode is 'height':
+                            img = resizeimage.resize_height(img, shapey)
+
                         fname, extension = os.path.splitext(d)
-                        newfile = fname + extension
-                        if extension != ".jpg":
-                            newfile = fname + ".jpg"
-                        img.save(os.path.join(output_dir + '/' + x, newfile), "JPEG", quality=90)
-                        print("Resizing file : %s - %s " % (x, d))
+                        out_file = os.path.join(output_dir + '/' + x, fname + extension)
+                        img.save(out_file, img.format, quality=quality)
+                        img.close()
                     except Exception, e:
                         print("Error resize file : %s - %s " % (x, d))
-                        sys.exit(1)
+
     except Exception, e:
         print("Error, check Input directory etc : ", e)
         sys.exit(1)
     return output_dir
 
 
-def load_samples(fpaths, label, train_imgs_per_category, test_imgs_per_category, max_width, max_height):
-    np.random.shuffle(fpaths)
-    if train_imgs_per_category + test_imgs_per_category > len(fpaths):
-        print("not enough samples for label %s" % label)
-        sys.exit(1)
+def shuffle_data(X_train, y_train, X_test, y_test):
+    # shuffle training data
+    shuffle_index_training = np.arange(X_train.shape[0])
+    np.random.shuffle(shuffle_index_training)
+    X_train = X_train[shuffle_index_training]
+    y_train = y_train[shuffle_index_training]
 
+    # shuffle test data
+    shuffle_index_test = np.arange(X_test.shape[0])
+    np.random.shuffle(shuffle_index_test)
+    X_test = X_test[shuffle_index_test]
+    y_test = y_test[shuffle_index_test]
+
+    return (X_train, y_train), (X_test, y_test)
+
+
+def load_samples(fpaths, label, train_imgs_per_category, test_imgs_per_category, max_width, max_height):
     train_labels = [ label for x in range(train_imgs_per_category)]
     test_labels = [ label for x in range(test_imgs_per_category)]
 

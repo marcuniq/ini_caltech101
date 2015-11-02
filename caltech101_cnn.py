@@ -2,6 +2,7 @@ from __future__ import absolute_import
 from __future__ import print_function
 import json
 import datetime
+import os
 import numpy as np
 #np.random.seed(42) # make keras deterministic
 
@@ -32,7 +33,7 @@ from ini_caltech101.keras_extensions.utils import generic_utils
 # parameters
 batch_size = 16
 nb_classes = 102
-nb_epoch = 50
+nb_epoch = 20
 data_augmentation = False
 resize_imgs = False
 shuffle_data = True
@@ -47,7 +48,8 @@ image_dimensions = 3
 
 # load the data, shuffled and split between train and test sets
 print("Loading data...")
-(X_train, y_train), (X_test, y_test) = caltech101.load_data(resize=resize_imgs,
+path = os.path.expanduser(os.path.join('~', '.ini_caltech101', 'resized', '101_ObjectCategories'))
+(X_train, y_train), (X_test, y_test) = caltech101.load_data(path=path, resize=resize_imgs,
                                                             shapex=shapex, shapey=shapey,
                                                             train_imgs_per_category=25, test_imgs_per_category=3,
                                                             shuffle=shuffle_data)
@@ -77,11 +79,13 @@ else:
     lr = 0.003
     decay = 5e-4
 
-    X_train = X_train - np.mean(X_train, axis=0)
-    X_train = X_train / np.std(X_train, axis=0)
+    X_train_mean = np.mean(X_train, axis=0)
+    X_train = X_train - X_train_mean
+    X_train_std = np.std(X_train, axis=0)
+    X_train = X_train / X_train_std
 
-    X_test = X_test - np.mean(X_test, axis=0)
-    X_test = X_test / np.std(X_test, axis=0)
+    X_test = X_test - X_train_mean
+    X_test = X_test / X_train_std
 
 
 model = Sequential()

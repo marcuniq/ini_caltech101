@@ -7,7 +7,7 @@ import numpy as np
 #np.random.seed(42) # make keras deterministic
 
 from keras.preprocessing.image import ImageDataGenerator
-from keras.models import Sequential
+from keras.models import Sequential, make_batches
 from keras.layers.core import Dense, Dropout, Activation, Flatten
 from keras.layers.normalization import LRN2D
 from keras.layers.convolutional import Convolution2D, MaxPooling2D, ZeroPadding2D
@@ -17,7 +17,7 @@ from keras.regularizers import l2
 from keras.callbacks import CallbackList
 from six.moves import range
 
-from ini_caltech101.dataset import caltech101
+from ini_caltech101.dataset import caltech101, util
 from ini_caltech101.keras_extensions.constraints import zero
 from ini_caltech101.keras_extensions.callbacks import INIBaseLogger, INILearningRateScheduler, INILearningRateReducer
 from ini_caltech101.keras_extensions.schedules import TriangularLearningRate
@@ -51,17 +51,26 @@ print("Loading data...")
 path = os.path.expanduser(os.path.join('~', '.ini_caltech101', 'resized', '101_ObjectCategories'))
 (X_train, y_train), (X_test, y_test) = caltech101.load_data(path=path, resize=resize_imgs,
                                                             shapex=shapex, shapey=shapey,
-                                                            train_imgs_per_category=25, test_imgs_per_category=3,
+                                                            train_imgs_per_category='all', test_imgs_per_category=3,
                                                             shuffle=shuffle_data)
 print('X_train shape:', X_train.shape)
 print(X_train.shape[0], 'train samples')
 print(X_test.shape[0], 'test samples')
+
 
 # data preprocessing
 X_train = X_train.astype("float32")
 X_test = X_test.astype("float32")
 X_train /= 255
 X_test /= 255
+
+X_train_mean = np.mean(X_train, axis=0)
+X_train = X_train - X_train_mean
+X_train_std = np.std(X_train, axis=0)
+X_train = X_train / X_train_std
+
+X_test = X_test - X_train_mean
+X_test = X_test / X_train_std
 
 
 # cnn architecture
@@ -78,14 +87,6 @@ else:
     dropout = True
     lr = 0.003
     decay = 5e-4
-
-    X_train_mean = np.mean(X_train, axis=0)
-    X_train = X_train - X_train_mean
-    X_train_std = np.std(X_train, axis=0)
-    X_train = X_train / X_train_std
-
-    X_test = X_test - X_train_mean
-    X_test = X_test / X_train_std
 
 
 model = Sequential()
@@ -170,27 +171,10 @@ if not data_augmentation:
     open('results/{:%Y-%m-%d_%H.%M.%S}_test-score.json'.format(dt), 'w').write(json.dumps(score))
     model.save_weights('results/{:%Y-%m-%d_%H.%M.%S}_weights.hdf5'.format(dt))
 else:
-    print("Using real time data augmentation")
-
-    # this will do preprocessing and realtime data augmentation
-    datagen = ImageDataGenerator(
-        featurewise_center=True,  # set input mean to 0 over the dataset
-        samplewise_center=False,  # set each sample mean to 0
-        featurewise_std_normalization=True,  # divide inputs by std of the dataset
-        samplewise_std_normalization=False,  # divide each input by its std
-        zca_whitening=False,  # apply ZCA whitening
-        rotation_range=20,  # randomly rotate images in the range (degrees, 0 to 180)
-        width_shift_range=0.2,  # randomly shift images horizontally (fraction of total width)
-        height_shift_range=0.2,  # randomly shift images vertically (fraction of total height)
-        horizontal_flip=True,  # randomly flip images
-        vertical_flip=False)  # randomly flip images
-
-    # compute quantities required for featurewise normalization
-    # (std, mean, and principal components if ZCA whitening is applied)
-    datagen.fit(X_train)
-
     losses = []
     scores = []
+    nb_train_sample = X_train.shape[0]
+    shuffle_on_epoch_start = True
 
     for e in range(nb_epoch):
         print('-'*40)
@@ -198,9 +182,16 @@ else:
         print('-'*40)
         print("Training...")
 
-        # batch train with realtime data augmentation
-        progbar = generic_utils.Progbar(X_train.shape[0])
-        for X_batch, Y_batch in datagen.flow(X_train, y_train, batch_size=64):
+        if shuffle_on_epoch_start:
+            (X_train, y_train) = util.shuffle_data(X_train, y_train)
+
+        # batch train
+        progbar = generic_utils.Progbar(nb_train_sample)
+        batches = make_batches(nb_train_sample, batch_size)
+        for batch_index, (batch_start, batch_end) in enumerate(batches):
+            batch_ids = index_array[batch_start:batch_end]
+
+        for X_batch, Y_batch in make_batches(X_train, y_train, batch_size=64):
             loss = model.train_on_batch(X_batch, Y_batch, accuracy=True)
             losses += [loss]
             progbar.add(X_batch.shape[0], values=[("loss", loss[0]), ("acc", loss[1])])

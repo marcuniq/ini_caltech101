@@ -6,5 +6,5 @@ setup(name='ini_caltech101',
       description='',
       author='Marco Unternährer',
       author_email='marco.unter@gmail.com',
-      install_requires=['keras', 'python-resize-image', 'Image'],
+      install_requires=['keras', 'Image'],
       packages=find_packages())

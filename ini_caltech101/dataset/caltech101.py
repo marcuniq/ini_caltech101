@@ -1,5 +1,6 @@
 from __future__ import absolute_import
 from .util import get_file, resize_imgs, shuffle_data, load_samples, to_categorical
+from keras.preprocessing.image import list_pictures
 import numpy as np
 import os
 
@@ -51,7 +52,7 @@ def load_data(path="", resize=False, shapex=240, shapey=180,
 
     for i, label in enumerate(labels):
         label_dir = os.path.join(path, label)
-        fpaths = [os.path.join(label_dir, img_fname) for img_fname in os.listdir(label_dir)]
+        fpaths = [os.path.join(label_dir, img_fname) for img_fname in list_pictures(label_dir)]
 
         np.random.shuffle(fpaths)
 
@@ -91,7 +92,7 @@ def load_data(path="", resize=False, shapex=240, shapey=180,
     return (X_train, y_train), (X_test, y_test)
 
 
-def load_paths(path="", train_imgs_per_category='all', test_imgs_per_category=3, ohc=True, shuffle=True):
+def load_paths(path="", train_imgs_per_category='all', test_imgs_per_category=0, ohc=True, shuffle=True):
     if not path:
         untar_dir = get_file(caltech101_origin, caltech101_data_dir)
         path = os.path.join(untar_dir, caltech101_dirname)
@@ -109,13 +110,17 @@ def load_paths(path="", train_imgs_per_category='all', test_imgs_per_category=3,
     # loop over all subdirs
     for i, label in enumerate(labels):
         label_dir = os.path.join(path, label)
-        fpaths = np.array([os.path.join(label_dir, img_fname) for img_fname in os.listdir(label_dir)])
+        fpaths = np.array([os.path.join(label_dir, img_fname) for img_fname in list_pictures(label_dir)])
 
         np.random.shuffle(fpaths)
 
         if train_imgs_per_category is 'all':
-            train_fpaths = fpaths[:-test_imgs_per_category]
-            test_fpaths = fpaths[-test_imgs_per_category:]
+            if test_imgs_per_category == 0:
+                train_fpaths = fpaths
+                test_fpaths = []
+            else:
+                train_fpaths = fpaths[:-test_imgs_per_category]
+                test_fpaths = fpaths[-test_imgs_per_category:]
         else:
             if train_imgs_per_category + test_imgs_per_category > len(fpaths):
                 print("not enough samples for label %s" % label)

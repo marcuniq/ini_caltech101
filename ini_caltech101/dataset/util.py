@@ -132,7 +132,7 @@ def load_samples(fpaths, sample_label, nb_samples, max_width, max_height):
     sample_data = np.zeros((nb_samples, 3, max_height, max_width), dtype="uint8")
 
     counter = 0
-    for i in range(0, nb_samples):
+    for i in range(nb_samples):
         img = load_img(fpaths[i])
         r, g, b = img.split()
         sample_data[counter, 0, :, :] = np.array(r)
@@ -154,3 +154,30 @@ def to_categorical(y, nb_classes=None):
     for i in range(len(y)):
         Y[i, y[i]] = 1.
     return Y
+
+def calc_stats(img_paths):
+    def my_generator(fpaths):
+        for p in fpaths:
+            img = load_img(p)
+            yield img_to_array(img) / 255.
+
+    def my_mean(generator):
+        sum = generator.next()
+        count = 1
+        for img in generator:
+            sum += img
+            count += 1
+        return sum / count, count
+
+    def my_var(generator, mean):
+        var = 0
+        count = 0
+        for img in generator:
+            var += (img - mean) **2
+            count += 1
+        return var
+
+    mean, count = my_mean(my_generator(img_paths))
+    var = my_var(my_generator(img_paths), mean)
+
+    return mean, np.sqrt(var/(count - 1))

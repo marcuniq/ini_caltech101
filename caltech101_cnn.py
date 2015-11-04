@@ -26,9 +26,9 @@ from ini_caltech101.keras_extensions.optimizers import INISGD
 '''
 
 # parameters
-batch_size = 48
+batch_size = 40
 nb_classes = 102
-nb_epoch = 2
+nb_epoch = 20
 resize_imgs = False
 shuffle_data = True
 
@@ -44,7 +44,7 @@ image_dimensions = 3
 print("Loading data...")
 path = os.path.expanduser(os.path.join('~', '.ini_caltech101', 'img-gen-resized', '101_ObjectCategories'))
 (X_train_paths, y_train), (X_test_paths, y_test) = caltech101.load_paths(path=path,
-                                                                         train_imgs_per_category='all', test_imgs_per_category=6,
+                                                                         train_imgs_per_category='all', test_imgs_per_category=20,
                                                                          ohc=False, shuffle=shuffle_data)
 print('X_train shape:', X_train_paths.shape)
 print(X_train_paths.shape[0], 'train samples')
@@ -52,20 +52,18 @@ print(X_test_paths.shape[0], 'test samples')
 
 
 # data preprocessing
-# print("Data preprocessing...")
-# X_train = X_train.astype("float32")
-# X_test = X_test.astype("float32")
-# X_train /= 255
-# X_test /= 255
-#
-# X_train_mean = np.mean(X_train, axis=0, keepdims=True)
-# X_train = X_train - X_train_mean
-# X_train_std = np.std(X_train, axis=0, keepdims=True)
-# X_train = X_train / X_train_std
-#
-# X_test = X_test - X_train_mean
-# X_test = X_test / X_train_std
+X_mean_path = os.path.abspath(os.path.join(path, '..', 'X_mean.npy'))
+X_std_path = os.path.abspath(os.path.join(path, '..', 'X_std.npy'))
 
+if os.path.isfile(X_mean_path) and os.path.isfile(X_std_path):
+    print("Load mean and std...")
+    X_mean = np.load(X_mean_path)
+    X_std = np.load(X_std_path)
+else:
+    print("Calc mean and std...")
+    X_mean, X_std = util.calc_stats(X_train_paths)
+    np.save(os.path.abspath(os.path.join(path, '..', 'X_mean.npy')), X_mean)
+    np.save(os.path.abspath(os.path.join(path, '..', 'X_std.npy')), X_std)
 
 # cnn architecture
 batch_normalization = False
@@ -197,35 +195,40 @@ else:
 
             X_batch, y_batch = util.load_samples(X_train_paths[batch_start:batch_end],
                                                  y_train[batch_start:batch_end],
-                                                 batch_size, shapex, shapey)
-            #y_batch = np.reshape(y_batch, (len(y_batch), 1))
+                                                 batch_end - batch_start, shapex, shapey)
             y_batch = util.to_categorical(y_batch, nb_classes)
+            X_batch = X_batch.astype("float32") / 255
+            X_batch = X_batch - X_mean
+            X_batch /= X_std
 
             outs = model.train_on_batch(X_batch, y_batch, accuracy=True)
 
             if type(outs) != list:
                 outs = [outs]
             for l, o in zip(out_labels, outs):
-                batch_logs[l] = o
+                batch_logs[l] = o.item()
             callbacks.on_batch_end(batch_index, batch_logs)
 
             epoch_logs = {}
             if batch_index == len(batches) - 1:  # last batch
                 # validation
                 if do_validation:
-                    batches = make_batches(nb_test_sample, batch_size)
-                    for batch_index, (batch_start, batch_end) in enumerate(batches):
-                        X_batch, y_batch = util.load_samples(X_test_paths[batch_start:batch_end],
-                                                             y_test[batch_start:batch_end],
-                                                             batch_size, shapex, shapey)
-                        y_batch = np.reshape(y_batch, (len(y_batch), 1))
+                    val_batches = make_batches(nb_test_sample, batch_size)
+                    for val_batch_index, (val_batch_start, val_batch_end) in enumerate(val_batches):
+                        X_batch, y_batch = util.load_samples(X_test_paths[val_batch_start:val_batch_end],
+                                                             y_test[val_batch_start:val_batch_end],
+                                                             val_batch_end - val_batch_start, shapex, shapey)
                         y_batch = util.to_categorical(y_batch, nb_classes)
+                        X_batch = X_batch.astype("float32") / 255
+                        X_batch = X_batch - X_mean
+                        X_batch /= X_std
                         val_outs = model.test_on_batch(X_batch, y_batch, accuracy=True)
+
                         if type(val_outs) != list:
                             val_outs = [val_outs]
                         # same labels assumed
                         for l, o in zip(out_labels, val_outs):
-                            epoch_logs['val_' + l] = o
+                            epoch_logs['val_' + l] = o.item()
 
         callbacks.on_epoch_end(epoch, epoch_logs)
         if model.stop_training:

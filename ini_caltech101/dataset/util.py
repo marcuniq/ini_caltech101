@@ -116,7 +116,7 @@ def shuffle_data(X_train, y_train, X_test=None, y_test=None):
     y_train = y_train[shuffle_index_training]
 
     # shuffle test data
-    if X_test and y_test:
+    if X_test is not None and y_test is not None:
         shuffle_index_test = np.arange(X_test.shape[0])
         np.random.shuffle(shuffle_index_test)
         X_test = X_test[shuffle_index_test]
@@ -125,32 +125,22 @@ def shuffle_data(X_train, y_train, X_test=None, y_test=None):
     return (X_train, y_train), (X_test, y_test)
 
 
-def load_samples(fpaths, label, train_imgs_per_category, test_imgs_per_category, max_width, max_height):
-    train_labels = [ label for x in range(train_imgs_per_category)]
-    test_labels = [ label for x in range(test_imgs_per_category)]
+def load_samples(fpaths, sample_label, nb_samples, max_width, max_height):
+    if type(sample_label) != np.ndarray:
+        sample_label = np.array([sample_label for x in range(nb_samples)])
 
-    train_data = np.zeros((train_imgs_per_category, 3, max_height, max_width), dtype="uint8")
-    test_data = np.zeros((test_imgs_per_category, 3, max_height, max_width), dtype="uint8")
-
-    counter = 0
-    for i in range(0, train_imgs_per_category):
-        img = load_img(fpaths[i])
-        r, g, b = img.split()
-        train_data[counter, 0, :, :] = np.array(r)
-        train_data[counter, 1, :, :] = np.array(g)
-        train_data[counter, 2, :, :] = np.array(b)
-        counter += 1
+    sample_data = np.zeros((nb_samples, 3, max_height, max_width), dtype="uint8")
 
     counter = 0
-    for i in range(train_imgs_per_category, train_imgs_per_category+test_imgs_per_category):
+    for i in range(0, nb_samples):
         img = load_img(fpaths[i])
         r, g, b = img.split()
-        test_data[counter, 0, :, :] = np.array(r)
-        test_data[counter, 1, :, :] = np.array(g)
-        test_data[counter, 2, :, :] = np.array(b)
+        sample_data[counter, 0, :, :] = np.array(r)
+        sample_data[counter, 1, :, :] = np.array(g)
+        sample_data[counter, 2, :, :] = np.array(b)
         counter += 1
 
-    return train_data, train_labels, test_data, test_labels
+    return sample_data, sample_label
 
 
 def to_categorical(y, nb_classes=None):

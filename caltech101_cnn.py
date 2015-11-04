@@ -6,15 +6,11 @@ import os
 import numpy as np
 #np.random.seed(42) # make keras deterministic
 
-from keras.preprocessing.image import ImageDataGenerator
 from keras.models import Sequential, make_batches
 from keras.layers.core import Dense, Dropout, Activation, Flatten
-from keras.layers.normalization import LRN2D
 from keras.layers.convolutional import Convolution2D, MaxPooling2D, ZeroPadding2D
-from keras.optimizers import SGD
-from keras.callbacks import EarlyStopping, LearningRateScheduler
+from keras.callbacks import EarlyStopping, LearningRateScheduler, CallbackList, History
 from keras.regularizers import l2
-from keras.callbacks import CallbackList
 from six.moves import range
 
 from ini_caltech101.dataset import caltech101, util
@@ -23,7 +19,6 @@ from ini_caltech101.keras_extensions.callbacks import INIBaseLogger, INILearning
 from ini_caltech101.keras_extensions.schedules import TriangularLearningRate
 from ini_caltech101.keras_extensions.normalization import BatchNormalization
 from ini_caltech101.keras_extensions.optimizers import INISGD
-from ini_caltech101.keras_extensions.utils import generic_utils
 '''
     Train a (fairly simple) deep CNN on the Caltech101 images dataset.
     GPU run command:
@@ -31,10 +26,9 @@ from ini_caltech101.keras_extensions.utils import generic_utils
 '''
 
 # parameters
-batch_size = 16
+batch_size = 48
 nb_classes = 102
-nb_epoch = 20
-data_augmentation = False
+nb_epoch = 2
 resize_imgs = False
 shuffle_data = True
 
@@ -48,29 +42,29 @@ image_dimensions = 3
 
 # load the data, shuffled and split between train and test sets
 print("Loading data...")
-path = os.path.expanduser(os.path.join('~', '.ini_caltech101', 'resized', '101_ObjectCategories'))
-(X_train, y_train), (X_test, y_test) = caltech101.load_data(path=path, resize=resize_imgs,
-                                                            shapex=shapex, shapey=shapey,
-                                                            train_imgs_per_category='all', test_imgs_per_category=3,
-                                                            shuffle=shuffle_data)
-print('X_train shape:', X_train.shape)
-print(X_train.shape[0], 'train samples')
-print(X_test.shape[0], 'test samples')
+path = os.path.expanduser(os.path.join('~', '.ini_caltech101', 'img-gen-resized', '101_ObjectCategories'))
+(X_train_paths, y_train), (X_test_paths, y_test) = caltech101.load_paths(path=path,
+                                                                         train_imgs_per_category='all', test_imgs_per_category=6,
+                                                                         ohc=False, shuffle=shuffle_data)
+print('X_train shape:', X_train_paths.shape)
+print(X_train_paths.shape[0], 'train samples')
+print(X_test_paths.shape[0], 'test samples')
 
 
 # data preprocessing
-X_train = X_train.astype("float32")
-X_test = X_test.astype("float32")
-X_train /= 255
-X_test /= 255
-
-X_train_mean = np.mean(X_train, axis=0)
-X_train = X_train - X_train_mean
-X_train_std = np.std(X_train, axis=0)
-X_train = X_train / X_train_std
-
-X_test = X_test - X_train_mean
-X_test = X_test / X_train_std
+# print("Data preprocessing...")
+# X_train = X_train.astype("float32")
+# X_test = X_test.astype("float32")
+# X_train /= 255
+# X_test /= 255
+#
+# X_train_mean = np.mean(X_train, axis=0, keepdims=True)
+# X_train = X_train - X_train_mean
+# X_train_std = np.std(X_train, axis=0, keepdims=True)
+# X_train = X_train / X_train_std
+#
+# X_test = X_test - X_train_mean
+# X_test = X_test / X_train_std
 
 
 # cnn architecture
@@ -142,8 +136,10 @@ model.compile(loss='categorical_crossentropy', optimizer=sgd)
 
 
 callbacks = []
-# logger = INIBaseLogger()
-# callbacks += [logger]
+history = History()
+callbacks += [history]
+logger = INIBaseLogger()
+callbacks += [logger]
 
 #schedule = TriangularLearningRate(lr=0.003, step_size=500, max_lr=0.03)
 #lrs = INILearningRateScheduler(schedule, mode='batch', logger=logger)
@@ -152,61 +148,93 @@ callbacks = []
 #lrr = INILearningRateReducer(monitor='val_acc', improve='increase', decrease_factor=0.1, patience=3, stop=3, verbose=1)
 #callbacks += [lrr]
 
+train_on_batch = True
 
-if not data_augmentation:
-    print("Not using data augmentation or normalization")
-
-    hist = model.fit(X_train, y_train, batch_size=batch_size, nb_epoch=nb_epoch,
-                     validation_split=0.1, show_accuracy=True,
-                     callbacks=callbacks
+if not train_on_batch:
+    hist = model.fit(X_train_paths[:-600], y_train[:-600], batch_size=batch_size, nb_epoch=nb_epoch,
+                     validation_data=(X_train_paths[-600:], y_train[-600:]), show_accuracy=True, verbose=1
+                     #callbacks=[lr_scheduler]
                      )
     print(hist.history)
 
-    score = model.evaluate(X_test, y_test, batch_size=batch_size, show_accuracy=True)
+    score = model.evaluate(X_test_paths, y_test, batch_size=batch_size, show_accuracy=True)
     print('Test score:', score)
-
-    dt = datetime.datetime.now()
-    open('results/{:%Y-%m-%d_%H.%M.%S}_architecture.json'.format(dt), 'w').write(model.to_json())
-    open('results/{:%Y-%m-%d_%H.%M.%S}_history.json'.format(dt), 'w').write(json.dumps(hist.history))
-    open('results/{:%Y-%m-%d_%H.%M.%S}_test-score.json'.format(dt), 'w').write(json.dumps(score))
-    model.save_weights('results/{:%Y-%m-%d_%H.%M.%S}_weights.hdf5'.format(dt))
 else:
-    losses = []
-    scores = []
-    nb_train_sample = X_train.shape[0]
-    shuffle_on_epoch_start = True
+    callbacks = CallbackList(callbacks)
 
-    for e in range(nb_epoch):
-        print('-'*40)
-        print('Epoch', e)
-        print('-'*40)
-        print("Training...")
+    nb_train_sample = X_train_paths.shape[0]
+    nb_test_sample = X_test_paths.shape[0]
+    shuffle_on_epoch_start = True
+    out_labels = ['loss', 'acc']
+    metrics = ['loss', 'acc', 'val_loss', 'val_acc']
+    do_validation = True
+
+    callbacks._set_model(model)
+    callbacks._set_params({
+        'batch_size': batch_size,
+        'nb_epoch': nb_epoch,
+        'nb_sample': nb_train_sample,
+        'verbose': 1,
+        'do_validation': do_validation,
+        'metrics': metrics,
+    })
+    callbacks.on_train_begin()
+
+    model.stop_training = False
+    for epoch in range(nb_epoch):
+        callbacks.on_epoch_begin(epoch)
 
         if shuffle_on_epoch_start:
-            (X_train, y_train) = util.shuffle_data(X_train, y_train)
+            (X_train_paths, y_train), (_, _) = util.shuffle_data(X_train_paths, y_train)
 
         # batch train
-        progbar = generic_utils.Progbar(nb_train_sample)
         batches = make_batches(nb_train_sample, batch_size)
         for batch_index, (batch_start, batch_end) in enumerate(batches):
-            batch_ids = index_array[batch_start:batch_end]
+            batch_logs = {}
+            batch_logs['batch'] = batch_index
+            batch_logs['size'] = batch_end - batch_start
+            callbacks.on_batch_begin(batch_index, batch_logs)
 
-        for X_batch, Y_batch in make_batches(X_train, y_train, batch_size=64):
-            loss = model.train_on_batch(X_batch, Y_batch, accuracy=True)
-            losses += [loss]
-            progbar.add(X_batch.shape[0], values=[("loss", loss[0]), ("acc", loss[1])])
+            X_batch, y_batch = util.load_samples(X_train_paths[batch_start:batch_end],
+                                                 y_train[batch_start:batch_end],
+                                                 batch_size, shapex, shapey)
+            #y_batch = np.reshape(y_batch, (len(y_batch), 1))
+            y_batch = util.to_categorical(y_batch, nb_classes)
 
-        print("Testing...")
-        # test time!
-        progbar = generic_utils.Progbar(X_test.shape[0])
-        for X_batch, Y_batch in datagen.flow(X_test, y_test, batch_size=64):
-            score = model.test_on_batch(X_batch, Y_batch, accuracy=True)
-            scores += [score]
-            progbar.add(X_batch.shape[0], values=[("test loss", score[0]), ("test acc", score[1])])
+            outs = model.train_on_batch(X_batch, y_batch, accuracy=True)
 
-    history = {loss: losses, score: scores}
+            if type(outs) != list:
+                outs = [outs]
+            for l, o in zip(out_labels, outs):
+                batch_logs[l] = o
+            callbacks.on_batch_end(batch_index, batch_logs)
+
+            epoch_logs = {}
+            if batch_index == len(batches) - 1:  # last batch
+                # validation
+                if do_validation:
+                    batches = make_batches(nb_test_sample, batch_size)
+                    for batch_index, (batch_start, batch_end) in enumerate(batches):
+                        X_batch, y_batch = util.load_samples(X_test_paths[batch_start:batch_end],
+                                                             y_test[batch_start:batch_end],
+                                                             batch_size, shapex, shapey)
+                        y_batch = np.reshape(y_batch, (len(y_batch), 1))
+                        y_batch = util.to_categorical(y_batch, nb_classes)
+                        val_outs = model.test_on_batch(X_batch, y_batch, accuracy=True)
+                        if type(val_outs) != list:
+                            val_outs = [val_outs]
+                        # same labels assumed
+                        for l, o in zip(out_labels, val_outs):
+                            epoch_logs['val_' + l] = o
+
+        callbacks.on_epoch_end(epoch, epoch_logs)
+        if model.stop_training:
+            break
+
+    callbacks.on_train_end()
+
     dt = datetime.datetime.now()
-    open('results/{:%Y-%m-%d_%H.%M.%S}_data-aug_architecture.json'.format(dt), 'w').write(model.to_json())
-    open('results/{:%Y-%m-%d_%H.%M.%S}_data-aug_history.json'.format(dt), 'w').write(json.dumps(history))
-    open('results/{:%Y-%m-%d_%H.%M.%S}_data-aug_test-score.json'.format(dt), 'w').write(json.dumps(score))
-    model.save_weights('results/{:%Y-%m-%d_%H.%M.%S}_data-aug_weights.hdf5'.format(dt))
+    open('results/{:%Y-%m-%d_%H.%M.%S}_img-gen_architecture.json'.format(dt), 'w').write(model.to_json())
+    open('results/{:%Y-%m-%d_%H.%M.%S}_img-gen_history.json'.format(dt), 'w').write(json.dumps(history.history))
+    #open('results/{:%Y-%m-%d_%H.%M.%S}_img-gen_test-score.json'.format(dt), 'w').write(json.dumps(score))
+    model.save_weights('results/{:%Y-%m-%d_%H.%M.%S}_img-gen_weights.hdf5'.format(dt))

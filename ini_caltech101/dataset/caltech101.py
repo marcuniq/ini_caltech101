@@ -52,7 +52,7 @@ def load_data(path="", resize=False, shapex=240, shapey=180,
 
     for i, label in enumerate(labels):
         label_dir = os.path.join(path, label)
-        fpaths = [os.path.join(label_dir, img_fname) for img_fname in list_pictures(label_dir)]
+        fpaths = [img_fname for img_fname in list_pictures(label_dir)]
 
         np.random.shuffle(fpaths)
 
@@ -65,10 +65,12 @@ def load_data(path="", resize=False, shapex=240, shapey=180,
             nb_train_samples = train_imgs_per_category
             nb_test_samples = test_imgs_per_category
 
-        train_data, train_labels, \
-            test_data, test_labels = load_samples(fpaths, i,
-                                                  nb_train_samples, nb_test_samples,
-                                                  shapex, shapey)
+        train_data, train_labels = load_samples(fpaths, i,
+                                                nb_train_samples,
+                                                shapex, shapey)
+        test_data, test_labels = load_samples(fpaths[nb_train_samples:], i,
+                                              nb_test_samples,
+                                              shapex, shapey)
 
         X_train[train_mem_ptr:train_mem_ptr + nb_train_samples, :, :, :] = train_data
         y_train[train_mem_ptr:train_mem_ptr + nb_train_samples] = train_labels
@@ -110,7 +112,7 @@ def load_paths(path="", train_imgs_per_category='all', test_imgs_per_category=0,
     # loop over all subdirs
     for i, label in enumerate(labels):
         label_dir = os.path.join(path, label)
-        fpaths = np.array([os.path.join(label_dir, img_fname) for img_fname in list_pictures(label_dir)])
+        fpaths = np.array([img_fname for img_fname in list_pictures(label_dir)])
 
         np.random.shuffle(fpaths)
 

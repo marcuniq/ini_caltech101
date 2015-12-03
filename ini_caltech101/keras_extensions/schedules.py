@@ -133,7 +133,7 @@ class TriangularLearningRate(LearningRateSchedule):
             if itr > 0:
                 x = float(itr - (2 * cycle - 1) * self.step_size)
                 x = x / self.step_size
-                return self.lr + (self.max_lr - self.lr) * max(0.0, (1.0 - abs(x))/cycle)
+                return self.max_lr - (self.max_lr - self.lr) * max(0.0, (1.0 - abs(x))/cycle)
 
         return current_lr
 

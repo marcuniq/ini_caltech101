@@ -1,6 +1,7 @@
 from __future__ import absolute_import
 from __future__ import print_function
 import sys
+import json
 import tarfile, os
 from six.moves.urllib.request import FancyURLopener
 import numpy as np
@@ -108,21 +109,18 @@ def resize_imgs(input_dir, output_dir, shapex, shapey, quality=90, verbose=1):
     return output_dir
 
 
-def shuffle_data(X_train, y_train, X_test=None, y_test=None):
-    # shuffle training data
-    shuffle_index_training = np.arange(X_train.shape[0])
-    np.random.shuffle(shuffle_index_training)
-    X_train = X_train[shuffle_index_training]
-    y_train = y_train[shuffle_index_training]
+def shuffle_data(X, y, seed=None):
+    # shuffle data
+    shuffle_index = np.arange(X.shape[0])
 
-    # shuffle test data
-    if X_test is not None and y_test is not None:
-        shuffle_index_test = np.arange(X_test.shape[0])
-        np.random.shuffle(shuffle_index_test)
-        X_test = X_test[shuffle_index_test]
-        y_test = y_test[shuffle_index_test]
+    if seed:
+        np.random.seed(seed)
 
-    return (X_train, y_train), (X_test, y_test)
+    np.random.shuffle(shuffle_index)
+    X = X[shuffle_index]
+    y = y[shuffle_index]
+
+    return X, y
 
 
 def load_samples(fpaths, sample_label, nb_samples, max_width, max_height):
@@ -147,6 +145,8 @@ def to_categorical(y, nb_classes=None):
     '''Convert class vector (integers from 0 to nb_classes)
         to binary class matrix, for use with categorical_crossentropy
     '''
+    if len(y.shape) is not 2:
+        y = np.reshape(y, (len(y), 1))
     y = np.asarray(y, dtype='int32')
     if not nb_classes:
         nb_classes = np.max(y)+1
@@ -181,3 +181,153 @@ def calc_stats(img_paths):
     var = my_var(my_generator(img_paths), mean)
 
     return mean, np.sqrt(var/(count - 1))
+
+
+def load_label_path_dict(path, seed=None):
+    label_path_dict = {}
+
+    # directories are the labels
+    labels = sorted([d for d in os.listdir(path)])
+    #assert len(labels) == caltech101_nb_categories
+
+    # loop over all subdirs
+    for i, label in enumerate(labels):
+        label_dir = os.path.join(path, label)
+        fpaths = np.array([img_fname for img_fname in list_pictures(label_dir)])
+
+        if seed:
+            np.random.seed(seed)
+        np.random.shuffle(fpaths)
+
+        stacked = np.dstack((fpaths, [i for x in range(len(fpaths))]))[0]
+        label_path_dict[i] = stacked
+
+    return label_path_dict
+
+
+def split_label_path_dict(label_path_dict):
+    path_label = np.concatenate(label_path_dict.values(), axis=0)
+    swap = np.swapaxes(path_label, 0, 1)
+    paths = swap[0]
+    labels = swap[1]
+
+    return paths, labels
+
+
+def create_label_path_dict(path_label_array):
+    label_path_dict = {}
+
+    for path, label in path_label_array:
+        if label not in label_path_dict:
+            label_path_dict[label] = []
+
+        label_path_dict[label] += [np.array([path, label])]
+
+    return label_path_dict
+
+
+def train_test_split(label_path_dict, y=None, test_size=0.2, stratify=True, seed=None):
+
+    dict_input = True
+    if type(label_path_dict) != dict:
+        dict_input = False
+        label_path_dict = create_label_path_dict(zip(label_path_dict, y))
+
+    if stratify:
+        train_dict = {}
+        test_dict = {}
+
+        for label, path_label_array in label_path_dict.iteritems():
+
+            if seed:
+                np.random.seed(seed)
+            np.random.shuffle(path_label_array)
+
+            if test_size < 1:
+                # test_size is split ratio
+                nb_train_items = int(len(path_label_array) * (1.0 - test_size))
+            else:
+                # test_size is number of images per category
+                nb_train_items = len(path_label_array) - test_size
+
+            train_dict[label] = path_label_array[:nb_train_items]
+            test_dict[label] = path_label_array[nb_train_items:]
+    else:
+        path_label_array = np.concatenate(label_path_dict.values(), axis=0)
+
+        if seed:
+            np.random.seed(seed)
+        np.random.shuffle(path_label_array)
+
+        if test_size < 1:
+            # test_size is split ratio
+            nb_train_items = int(len(path_label_array) * (1.0 - test_size))
+        else:
+            # test_size is number of images per category
+            nb_train_items = len(path_label_array) - test_size
+
+        train_dict = create_label_path_dict(path_label_array[:nb_train_items])
+        test_dict = create_label_path_dict(path_label_array[nb_train_items:])
+
+    if not dict_input:
+        X_train, y_train = split_label_path_dict(train_dict)
+        X_test, y_test = split_label_path_dict(test_dict)
+
+        assert np.intersect1d(X_train, X_test).size == 0
+
+        return (X_train, y_train), (X_test, y_test)
+    else:
+        assert np.intersect1d(split_label_path_dict(train_dict)[0], split_label_path_dict(test_dict)[0]).size == 0
+
+        return train_dict, test_dict
+
+
+def already_split(path, test_size, stratify, seed):
+    split_config_path = os.path.abspath(os.path.join(path, '..', 'split_config.txt'))
+
+    if os.path.isfile(split_config_path):
+        with open(split_config_path) as data_file:
+            split_config = json.load(data_file)
+
+            same_config = path == str(split_config['path']) and \
+                       test_size == float(split_config['test_size']) and \
+                       stratify == bool(split_config['stratify'])
+
+            same_seed = (seed == int(split_config['seed'])) if split_config['seed'] else (seed == split_config['seed'])
+
+            return same_config and same_seed
+
+    return False
+
+
+def load_split_paths(path):
+    X_train_path = os.path.abspath(os.path.join(path, '..', 'X_train.txt'))
+    y_train_path = os.path.abspath(os.path.join(path, '..', 'y_train.txt'))
+    X_test_path = os.path.abspath(os.path.join(path, '..', 'X_test.txt'))
+    y_test_path = os.path.abspath(os.path.join(path, '..', 'y_test.txt'))
+
+    if os.path.isfile(X_train_path) and os.path.isfile(y_train_path) and \
+        os.path.isfile(X_test_path) and os.path.isfile(y_test_path):
+
+        X_train = np.loadtxt(X_train_path, dtype=np.str_)
+        y_train = np.loadtxt(y_train_path, dtype=np.int)
+        X_test = np.loadtxt(X_test_path, dtype=np.str_)
+        y_test = np.loadtxt(y_test_path, dtype=np.int)
+
+        return (X_train, y_train), (X_test, y_test)
+    else:
+        raise Exception
+
+def save_split_paths(path, X_train, y_train, X_test, y_test, split_config):
+    X_train_path = os.path.abspath(os.path.join(path, '..', 'X_train.txt'))
+    y_train_path = os.path.abspath(os.path.join(path, '..', 'y_train.txt'))
+    X_test_path = os.path.abspath(os.path.join(path, '..', 'X_test.txt'))
+    y_test_path = os.path.abspath(os.path.join(path, '..', 'y_test.txt'))
+    split_config_path = os.path.abspath(os.path.join(path, '..', 'split_config.txt'))
+
+    np.savetxt(X_train_path, X_train, fmt='%s')
+    np.savetxt(y_train_path, y_train, fmt='%s')
+    np.savetxt(X_test_path, X_test, fmt='%s')
+    np.savetxt(y_test_path, y_test, fmt='%s')
+
+    open(split_config_path, 'w').write(json.dumps(split_config))

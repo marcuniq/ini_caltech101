@@ -1,5 +1,5 @@
 from __future__ import absolute_import
-from .util import get_file, resize_imgs, shuffle_data, load_samples, to_categorical
+from . import util
 from keras.preprocessing.image import list_pictures
 import numpy as np
 import os
@@ -12,15 +12,14 @@ caltech101_nb_categories = 102
 
 
 def load_data(path="", resize=False, shapex=240, shapey=180,
-              train_imgs_per_category='all', test_imgs_per_category=3,
-              ohc=True, shuffle=True):
+              train_imgs_per_category='all', test_imgs_per_category=3, seed=None):
     if not path:
-        untar_dir = get_file(caltech101_origin, caltech101_data_dir)
+        untar_dir = util.get_file(caltech101_origin, caltech101_data_dir)
         path = os.path.join(untar_dir, caltech101_dirname)
 
     if resize:
         output_dir = os.path.join(caltech101_data_dir, 'resized', caltech101_dirname)
-        path = resize_imgs(input_dir=path, output_dir=output_dir, shapex=shapex, shapey=shapey)
+        path = util.resize_imgs(input_dir=path, output_dir=output_dir, shapex=shapex, shapey=shapey)
 
 
     # directories are the labels
@@ -31,8 +30,7 @@ def load_data(path="", resize=False, shapex=240, shapey=180,
     if train_imgs_per_category is 'all':
         (train_paths, _), (_, _) = load_paths(path,
                                               train_imgs_per_category='all',
-                                              test_imgs_per_category=test_imgs_per_category,
-                                              ohc=False, shuffle=False)
+                                              test_imgs_per_category=test_imgs_per_category)
 
         nb_train_samples = len(train_paths)
     else:
@@ -54,6 +52,8 @@ def load_data(path="", resize=False, shapex=240, shapey=180,
         label_dir = os.path.join(path, label)
         fpaths = [img_fname for img_fname in list_pictures(label_dir)]
 
+        if seed:
+            np.random.seed(seed)
         np.random.shuffle(fpaths)
 
         if train_imgs_per_category is 'all':
@@ -65,10 +65,10 @@ def load_data(path="", resize=False, shapex=240, shapey=180,
             nb_train_samples = train_imgs_per_category
             nb_test_samples = test_imgs_per_category
 
-        train_data, train_labels = load_samples(fpaths, i,
+        train_data, train_labels = util.load_samples(fpaths, i,
                                                 nb_train_samples,
                                                 shapex, shapey)
-        test_data, test_labels = load_samples(fpaths[nb_train_samples:], i,
+        test_data, test_labels = util.load_samples(fpaths[nb_train_samples:], i,
                                               nb_test_samples,
                                               shapex, shapey)
 
@@ -80,71 +80,36 @@ def load_data(path="", resize=False, shapex=240, shapey=180,
         y_test[test_mem_ptr:test_mem_ptr + nb_test_samples] = test_labels
         test_mem_ptr += nb_test_samples
 
-    # one-hot-encoding
-    if ohc:
-        y_train = np.reshape(y_train, (len(y_train), 1))
-        y_test = np.reshape(y_test, (len(y_test), 1))
-
-        y_train = to_categorical(y_train, caltech101_nb_categories)
-        y_test = to_categorical(y_test, caltech101_nb_categories)
-
-    # shuffle/permutation
-    if shuffle:
-        (X_train, y_train), (X_test, y_test) = shuffle_data(X_train, y_train, X_test, y_test)
     return (X_train, y_train), (X_test, y_test)
 
 
-def load_paths(path="", train_imgs_per_category='all', test_imgs_per_category=0, ohc=True, shuffle=True):
+def load_paths(path="", test_size=0.2, stratify=True, seed=None):
     if not path:
-        untar_dir = get_file(caltech101_origin, caltech101_data_dir)
+        untar_dir = util.get_file(caltech101_origin, caltech101_data_dir)
         path = os.path.join(untar_dir, caltech101_dirname)
 
-    X_train = np.array([])
-    y_train = np.array([])
+    if util.already_split(path, test_size, stratify, seed):
+        print("Load train/test split from disk...")
+        return util.load_split_paths(path)
+    else:
+        X_dict = util.load_label_path_dict(path, seed=seed)
 
-    X_test = np.array([])
-    y_test = np.array([])
+        # generate split
+        print("Generate train/test split...")
+        train_dict, test_dict = util.train_test_split(X_dict, test_size=test_size, stratify=stratify)
 
-    # directories are the labels
-    labels = sorted([d for d in os.listdir(path)])
-    assert len(labels) == caltech101_nb_categories
+        X_train, y_train = util.split_label_path_dict(train_dict)
+        X_test, y_test = util.split_label_path_dict(test_dict)
 
-    # loop over all subdirs
-    for i, label in enumerate(labels):
-        label_dir = os.path.join(path, label)
-        fpaths = np.array([img_fname for img_fname in list_pictures(label_dir)])
+        # save split to files
+        print("Save train/test split to disk...")
+        split_config = {'path': path,
+                        'test_size': test_size,
+                        'stratify': stratify,
+                        'seed': seed,
+                        'train_samples': X_train.shape[0],
+                        'test_samples': X_test.shape[0]}
 
-        np.random.shuffle(fpaths)
+        util.save_split_paths(path, X_train, y_train, X_test, y_test, split_config)
 
-        if train_imgs_per_category is 'all':
-            if test_imgs_per_category == 0:
-                train_fpaths = fpaths
-                test_fpaths = []
-            else:
-                train_fpaths = fpaths[:-test_imgs_per_category]
-                test_fpaths = fpaths[-test_imgs_per_category:]
-        else:
-            if train_imgs_per_category + test_imgs_per_category > len(fpaths):
-                print("not enough samples for label %s" % label)
-
-            train_fpaths = fpaths[:train_imgs_per_category]
-            test_fpaths = fpaths[train_imgs_per_category:train_imgs_per_category+test_imgs_per_category]
-
-        X_train = np.append(X_train, train_fpaths)
-        y_train = np.append(y_train, [i for x in range(len(train_fpaths))])
-
-        X_test = np.append(X_test, test_fpaths)
-        y_test = np.append(y_test, [i for x in range(len(test_fpaths))])
-
-    # one-hot-encoding
-    if ohc:
-        y_train = np.reshape(y_train, (len(y_train), 1))
-        y_test = np.reshape(y_test, (len(y_test), 1))
-
-        y_train = to_categorical(y_train, caltech101_nb_categories)
-        y_test = to_categorical(y_test, caltech101_nb_categories)
-
-    # shuffle/permutation
-    if shuffle:
-        (X_train, y_train), (X_test, y_test) = shuffle_data(X_train, y_train, X_test, y_test)
-    return (X_train, y_train), (X_test, y_test)
+        return (X_train, y_train), (X_test, y_test)

@@ -92,12 +92,12 @@ class BatchNormalization(Layer):
         X = self.get_input(train)
 
         if self.mode == 0:
-            X_normed = (X - self.running_mean) / (self.running_std + self.epsilon)
+            X_normed = (X - self.running_mean) / self.running_std
 
         elif self.mode == 1:
-            m = X.mean(axis=-1, keepdims=True)
-            std = X.std(axis=-1, keepdims=True)
-            X_normed = (X - m) / (std + self.epsilon)
+            m = T.mean(X, self.axis, keepdims=True)
+            std = T.sqrt(T.var(X, self.axis, keepdims=True) + self.epsilon)
+            X_normed = (X - m) / std
 
         out = self.gamma * X_normed + self.beta
         return out

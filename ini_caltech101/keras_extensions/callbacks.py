@@ -51,7 +51,7 @@ class INIBaseLogger(Callback):
             if k in self.totals:
                 self.log_values.append((k, self.totals[k] / self.seen))
             if k in logs:
-                self.log_values.append((k, logs[k]))
+                self.log_values.append((k, np.mean(logs[k])))
         if self.verbose:
             self.progbar.update(self.seen, self.log_values)
 
@@ -207,3 +207,42 @@ class INILearningRateScheduler(Callback):
             self.model.optimizer.lr.set_value(new_lr)
             if self.logger:
                 self.logger.progbar.replace_value('lr', new_lr)
+
+
+class INIHistory(Callback):
+
+    def on_train_begin(self, logs={}):
+        self.epoch = []
+        self.history = {}
+
+    def on_epoch_begin(self, epoch, logs={}):
+        self.seen = 0
+        self.batch_history = {}
+
+    def on_batch_end(self, batch, logs={}):
+        batch_size = logs.get('size', 0)
+        self.seen += batch_size
+        for k, v in logs.items():
+            v = v.item() if type(v) == np.ndarray else v # get rid of numpy type
+            if k in self.batch_history:
+                self.batch_history[k] += [v]
+            else:
+                self.batch_history[k] = [v]
+
+    def on_epoch_end(self, epoch, logs={}):
+        self.epoch.append(epoch)
+        for k, v in self.batch_history.items():
+            if k not in self.history:
+                self.history[k] = []
+            self.history[k].append(v)
+
+        for k, v in logs.items():
+            if k not in self.history:
+                self.history[k] = []
+            self.history[k].append(v)
+
+    def on_train_end(self, logs={}):
+        for k, v in logs.items():
+            if k not in self.history:
+                self.history[k] = []
+            self.history[k].append(v)

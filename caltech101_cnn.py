@@ -28,9 +28,9 @@ from ini_caltech101.keras_extensions.optimizers import INISGD
 # parameters
 batch_size = 64
 nb_classes = 102
-nb_epoch = 8
+nb_epoch = 4
 
-experiment_name = '_bn-mode1-modified'
+experiment_name = '_bn_conv128-7x7'
 
 shuffle_data = True
 normalize_data = True
@@ -129,7 +129,7 @@ else:
 
 
 model = Sequential()
-conv1 = Convolution2D(128, 5, 5,
+conv1 = Convolution2D(128, 7, 7,
                       subsample=(2, 2), # subsample = stride
                       b_constraint=zero(),
                       init='he_normal',

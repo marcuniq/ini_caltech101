@@ -30,7 +30,7 @@ batch_size = 64
 nb_classes = 102
 nb_epoch = 4
 
-experiment_name = '_bn_conv128-7x7'
+experiment_name = '_bn_conv1-relu-conv2-relu-maxp'
 
 shuffle_data = True
 normalize_data = True
@@ -129,7 +129,7 @@ else:
 
 
 model = Sequential()
-conv1 = Convolution2D(128, 7, 7,
+conv1 = Convolution2D(64, 5, 5,
                       subsample=(2, 2), # subsample = stride
                       b_constraint=zero(),
                       init='he_normal',
@@ -139,11 +139,11 @@ model.add(conv1)
 if batch_normalization:
     model.add(BatchNormalization(mode=1))
 model.add(Activation('relu'))
-model.add(MaxPooling2D(pool_size=(2, 2), stride=(2, 2)))
+#model.add(MaxPooling2D(pool_size=(2, 2), stride=(2, 2)))
 if dropout:
     model.add(Dropout(0.35))
 
-conv2 = Convolution2D(256, 3, 3, b_constraint=zero(), init='he_normal', W_regularizer=l2(weight_reg))
+conv2 = Convolution2D(96, 3, 3, b_constraint=zero(), init='he_normal', W_regularizer=l2(weight_reg))
 model.add(conv2)
 if batch_normalization:
     model.add(BatchNormalization(mode=1))
@@ -153,7 +153,7 @@ if dropout:
     model.add(Dropout(0.35))
 
 model.add(ZeroPadding2D(padding=(1, 1)))
-conv3 = Convolution2D(512, 3, 3, b_constraint=zero(), init='he_normal', W_regularizer=l2(weight_reg))
+conv3 = Convolution2D(128, 3, 3, b_constraint=zero(), init='he_normal', W_regularizer=l2(weight_reg))
 model.add(conv3)
 if batch_normalization:
     model.add(BatchNormalization(mode=1))

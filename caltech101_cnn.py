@@ -26,7 +26,7 @@ from ini_caltech101.keras_extensions.optimizers import INISGD
 '''
 
 # parameters
-batch_size = 64
+batch_size = 48
 nb_classes = 102
 nb_epoch = 4
 
@@ -129,7 +129,7 @@ else:
 
 
 model = Sequential()
-conv1 = Convolution2D(64, 5, 5,
+conv1 = Convolution2D(96, 5, 5,
                       subsample=(2, 2), # subsample = stride
                       b_constraint=zero(),
                       init='he_normal',
@@ -143,7 +143,7 @@ model.add(Activation('relu'))
 if dropout:
     model.add(Dropout(0.35))
 
-conv2 = Convolution2D(96, 3, 3, b_constraint=zero(), init='he_normal', W_regularizer=l2(weight_reg))
+conv2 = Convolution2D(128, 3, 3, b_constraint=zero(), init='he_normal', W_regularizer=l2(weight_reg))
 model.add(conv2)
 if batch_normalization:
     model.add(BatchNormalization(mode=1))
@@ -153,7 +153,7 @@ if dropout:
     model.add(Dropout(0.35))
 
 model.add(ZeroPadding2D(padding=(1, 1)))
-conv3 = Convolution2D(128, 3, 3, b_constraint=zero(), init='he_normal', W_regularizer=l2(weight_reg))
+conv3 = Convolution2D(256, 3, 3, b_constraint=zero(), init='he_normal', W_regularizer=l2(weight_reg))
 model.add(conv3)
 if batch_normalization:
     model.add(BatchNormalization(mode=1))

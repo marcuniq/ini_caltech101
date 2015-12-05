@@ -9,7 +9,7 @@ import numpy as np
 from keras.models import Sequential, make_batches
 from keras.layers.core import Dense, Dropout, Activation, Flatten
 from keras.layers.convolutional import Convolution2D, MaxPooling2D, ZeroPadding2D
-from keras.callbacks import EarlyStopping, LearningRateScheduler, CallbackList, History
+from keras.callbacks import EarlyStopping, LearningRateScheduler, CallbackList, History, ModelCheckpoint
 from keras.regularizers import l2
 from six.moves import range
 
@@ -26,11 +26,11 @@ from ini_caltech101.keras_extensions.optimizers import INISGD
 '''
 
 # parameters
-batch_size = 48
+batch_size = 64
 nb_classes = 102
-nb_epoch = 4
+nb_epoch = 20
 
-experiment_name = '_bn_conv1-relu-conv2-relu-maxp'
+experiment_name = '_bn_triangular_e20'
 
 shuffle_data = True
 normalize_data = True
@@ -118,8 +118,9 @@ print("Building model...")
 if batch_normalization:
     weight_reg = 5e-4 # weight regularization value for l2
     dropout = False
+    dropout_fc_layer = False
     lr = 0.02
-    lr_decay = 3e-3
+    lr_decay = 5e-4 #3e-3
 
 else:
     weight_reg = 5e-4 # weight regularization value for l2
@@ -129,7 +130,7 @@ else:
 
 
 model = Sequential()
-conv1 = Convolution2D(96, 5, 5,
+conv1 = Convolution2D(128, 5, 5,
                       subsample=(2, 2), # subsample = stride
                       b_constraint=zero(),
                       init='he_normal',
@@ -139,11 +140,11 @@ model.add(conv1)
 if batch_normalization:
     model.add(BatchNormalization(mode=1))
 model.add(Activation('relu'))
-#model.add(MaxPooling2D(pool_size=(2, 2), stride=(2, 2)))
+model.add(MaxPooling2D(pool_size=(2, 2), stride=(2, 2)))
 if dropout:
     model.add(Dropout(0.35))
 
-conv2 = Convolution2D(128, 3, 3, b_constraint=zero(), init='he_normal', W_regularizer=l2(weight_reg))
+conv2 = Convolution2D(256, 3, 3, b_constraint=zero(), init='he_normal', W_regularizer=l2(weight_reg))
 model.add(conv2)
 if batch_normalization:
     model.add(BatchNormalization(mode=1))
@@ -153,7 +154,7 @@ if dropout:
     model.add(Dropout(0.35))
 
 model.add(ZeroPadding2D(padding=(1, 1)))
-conv3 = Convolution2D(256, 3, 3, b_constraint=zero(), init='he_normal', W_regularizer=l2(weight_reg))
+conv3 = Convolution2D(512, 3, 3, b_constraint=zero(), init='he_normal', W_regularizer=l2(weight_reg))
 model.add(conv3)
 if batch_normalization:
     model.add(BatchNormalization(mode=1))
@@ -169,7 +170,7 @@ if batch_normalization:
     model.add(BatchNormalization(mode=1))
 model.add(Activation('relu'))
 
-if dropout:
+if dropout or dropout_fc_layer:
     model.add(Dropout(0.5))
 
 model.add(Dense(nb_classes, b_constraint=zero(), init='he_normal', W_regularizer=l2(weight_reg)))
@@ -189,9 +190,13 @@ logger = INIBaseLogger()
 callbacks += [logger]
 
 #step_size = 4 * (nb_train_sample / batch_size) # according to the paper: 2 - 8 times the iterations per epoch
-#schedule = TriangularLearningRate(lr=0.001, step_size=step_size, max_lr=0.02)
-#lrs = INILearningRateScheduler(schedule, mode='batch', logger=logger)
-#callbacks += [lrs]
+step_size = 12000
+schedule = TriangularLearningRate(lr=0.001, step_size=step_size, max_lr=0.02)
+lrs = INILearningRateScheduler(schedule, mode='batch', logger=logger)
+callbacks += [lrs]
+
+mcp = ModelCheckpoint('results/experiment' + experiment_name + '_epoch{epoch}_weights.hdf5')
+callbacks += [mcp]
 
 #lrr = INILearningRateReducer(monitor='val_acc', improve='increase', decrease_factor=0.1, patience=3, stop=3, verbose=1)
 #callbacks += [lrr]

@@ -28,9 +28,9 @@ from ini_caltech101.keras_extensions.optimizers import INISGD
 # parameters
 batch_size = 64
 nb_classes = 102
-nb_epoch = 4
+nb_epoch = 20
 
-experiment_name = '_bn_lr-0.01_decay-3e-3_l2-1e-4'
+experiment_name = '_bn_triangular_dropout-fc_e20'
 
 shuffle_data = True
 normalize_data = True
@@ -116,11 +116,11 @@ if shuffle_data:
 print("Building model...")
 
 if batch_normalization:
-    weight_reg = 1e-4 # weight regularization value for l2
+    weight_reg = 5e-4 # weight regularization value for l2
     dropout = False
-    dropout_fc_layer = False
+    dropout_fc_layer = True
     lr = 0.01
-    lr_decay = 3e-3
+    lr_decay = 5e-4
 
 else:
     weight_reg = 5e-4 # weight regularization value for l2
@@ -141,7 +141,7 @@ if batch_normalization:
     model.add(BatchNormalization(mode=1))
 model.add(Activation('relu'))
 model.add(MaxPooling2D(pool_size=(2, 2), stride=(2, 2)))
-if dropout:
+if dropout:0
     model.add(Dropout(0.35))
 
 conv2 = Convolution2D(256, 3, 3, b_constraint=zero(), init='he_normal', W_regularizer=l2(weight_reg))
@@ -190,12 +190,12 @@ logger = INIBaseLogger()
 callbacks += [logger]
 
 #step_size = 4 * (nb_train_sample / batch_size) # according to the paper: 2 - 8 times the iterations per epoch
-#step_size = 12000
-#schedule = TriangularLearningRate(lr=0.001, step_size=step_size, max_lr=0.02)
-#lrs = INILearningRateScheduler(schedule, mode='batch', logger=logger)
-#callbacks += [lrs]
+step_size = 12000
+schedule = TriangularLearningRate(lr=0.001, step_size=step_size, max_lr=0.02)
+lrs = INILearningRateScheduler(schedule, mode='batch', logger=logger)
+callbacks += [lrs]
 
-mcp = ModelCheckpoint('results/experiment' + experiment_name + '_epoch{epoch}_weights.hdf5')
+mcp = ModelCheckpoint('results/experiment' + experiment_name + '_epoch{epoch}_weights.hdf5', save_best_only=True)
 callbacks += [mcp]
 
 #lrr = INILearningRateReducer(monitor='val_acc', improve='increase', decrease_factor=0.1, patience=3, stop=3, verbose=1)

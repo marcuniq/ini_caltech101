@@ -28,9 +28,9 @@ from ini_caltech101.keras_extensions.optimizers import INISGD
 # parameters
 batch_size = 64
 nb_classes = 102
-nb_epoch = 20
+nb_epoch = 40
 
-experiment_name = '_bn_lr-0.001_e20'
+experiment_name = '_bn_lr-0.001_e20+40'
 
 shuffle_data = True
 normalize_data = True
@@ -180,7 +180,7 @@ print('Compiling model...')
 sgd = INISGD(lr=lr, decay=lr_decay, momentum=0.9, nesterov=True)
 model.compile(loss='categorical_crossentropy', optimizer=sgd)
 
-#model.load_weights('results/2015-11-17_18.25.45_weights.hdf5')
+model.load_weights('results/2015-12-10_20.31.58_bn_lr-0.001_e20_img-gen_weights.hdf5')
 
 callbacks = []
 history = INIHistory()

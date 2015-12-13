@@ -30,12 +30,12 @@ batch_size = 64
 nb_classes = 102
 nb_epoch = 40
 
-experiment_name = '_bn_lr-0.001_e20+40'
+experiment_name = '_no-bn_lr-0.001_e20+40'
 
 shuffle_data = True
 normalize_data = True
 
-batch_normalization = True
+batch_normalization = False
 
 train_on_batch = True
 
@@ -180,7 +180,7 @@ print('Compiling model...')
 sgd = INISGD(lr=lr, decay=lr_decay, momentum=0.9, nesterov=True)
 model.compile(loss='categorical_crossentropy', optimizer=sgd)
 
-model.load_weights('results/2015-12-10_20.31.58_bn_lr-0.001_e20_img-gen_weights.hdf5')
+model.load_weights('results/2015-12-12_18.15.01_no-bn_lr-0.001_e20_img-gen_weights.hdf5')
 
 callbacks = []
 history = INIHistory()

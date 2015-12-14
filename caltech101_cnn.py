@@ -30,14 +30,15 @@ batch_size = 64
 nb_classes = 102
 nb_epoch = 40
 
-experiment_name = '_no-bn_lr-0.005_e40'
+experiment_name = '_bn_triangluar_no-b-constraint_e40'
 
 shuffle_data = True
 normalize_data = True
-
-batch_normalization = False
-
+batch_normalization = True
 train_on_batch = True
+
+b_constraint = None
+#b_constraint = zero()
 
 
 # shape of the image (SHAPE x SHAPE)
@@ -119,7 +120,7 @@ if batch_normalization:
     weight_reg = 5e-4 # weight regularization value for l2
     dropout = False
     dropout_fc_layer = False
-    lr = 0.001
+    lr = 0.01
     lr_decay = 5e-4
 
 else:
@@ -132,7 +133,7 @@ else:
 model = Sequential()
 conv1 = Convolution2D(128, 5, 5,
                       subsample=(2, 2), # subsample = stride
-                      b_constraint=zero(),
+                      b_constraint=b_constraint,
                       init='he_normal',
                       W_regularizer=l2(weight_reg),
                       input_shape=(image_dimensions, shapex, shapey))
@@ -144,7 +145,7 @@ model.add(MaxPooling2D(pool_size=(2, 2), stride=(2, 2)))
 if dropout:
     model.add(Dropout(0.35))
 
-conv2 = Convolution2D(256, 3, 3, b_constraint=zero(), init='he_normal', W_regularizer=l2(weight_reg))
+conv2 = Convolution2D(256, 3, 3, b_constraint=b_constraint, init='he_normal', W_regularizer=l2(weight_reg))
 model.add(conv2)
 if batch_normalization:
     model.add(BatchNormalization(mode=1))
@@ -154,7 +155,7 @@ if dropout:
     model.add(Dropout(0.35))
 
 model.add(ZeroPadding2D(padding=(1, 1)))
-conv3 = Convolution2D(512, 3, 3, b_constraint=zero(), init='he_normal', W_regularizer=l2(weight_reg))
+conv3 = Convolution2D(512, 3, 3, b_constraint=b_constraint, init='he_normal', W_regularizer=l2(weight_reg))
 model.add(conv3)
 if batch_normalization:
     model.add(BatchNormalization(mode=1))
@@ -165,7 +166,7 @@ if dropout:
 
 model.add(Flatten())
 
-model.add(Dense(1024, b_constraint=zero(), init='he_normal', W_regularizer=l2(weight_reg)))
+model.add(Dense(1024, b_constraint=b_constraint, init='he_normal', W_regularizer=l2(weight_reg)))
 if batch_normalization:
     model.add(BatchNormalization(mode=1))
 model.add(Activation('relu'))
@@ -173,7 +174,7 @@ model.add(Activation('relu'))
 if dropout or dropout_fc_layer:
     model.add(Dropout(0.5))
 
-model.add(Dense(nb_classes, b_constraint=zero(), init='he_normal', W_regularizer=l2(weight_reg)))
+model.add(Dense(nb_classes, b_constraint=b_constraint, init='he_normal', W_regularizer=l2(weight_reg)))
 model.add(Activation('softmax'))
 
 print('Compiling model...')
@@ -189,11 +190,11 @@ callbacks += [history]
 logger = INIBaseLogger()
 callbacks += [logger]
 
-#step_size = 4 * (nb_train_sample / batch_size) # according to the paper: 2 - 8 times the iterations per epoch
+step_size = 4 * (nb_train_sample / batch_size) # according to the paper: 2 - 8 times the iterations per epoch
 #step_size = 12000
-#schedule = TriangularLearningRate(lr=0.001, step_size=step_size, max_lr=0.02)
-#lrs = INILearningRateScheduler(schedule, mode='batch', logger=logger)
-#callbacks += [lrs]
+schedule = TriangularLearningRate(lr=0.001, step_size=step_size, max_lr=0.02)
+lrs = INILearningRateScheduler(schedule, mode='batch', logger=logger)
+callbacks += [lrs]
 
 mcp = ModelCheckpoint('results/experiment' + experiment_name + '_epoch{epoch}_weights.hdf5', save_best_only=True)
 callbacks += [mcp]

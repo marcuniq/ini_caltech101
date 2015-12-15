@@ -28,9 +28,9 @@ from ini_caltech101.keras_extensions.optimizers import INISGD
 # parameters
 batch_size = 64
 nb_classes = 102
-nb_epoch = 40
+nb_epoch = 10
 
-experiment_name = '_bn_triangluar-min-0.0001_e40'
+experiment_name = '_bn_triangluar-stepsize-2_e10'
 
 shuffle_data = True
 normalize_data = True
@@ -189,9 +189,9 @@ callbacks += [history]
 logger = INIBaseLogger()
 callbacks += [logger]
 
-step_size = 4 * (nb_train_sample / batch_size) # according to the paper: 2 - 8 times the iterations per epoch
+step_size = 2 * (nb_train_sample / batch_size) # according to the paper: 2 - 8 times the iterations per epoch
 #step_size = 12000
-schedule = TriangularLearningRate(lr=0.0001, step_size=step_size, max_lr=0.02)
+schedule = TriangularLearningRate(lr=0.001, step_size=step_size, max_lr=0.02)
 lrs = INILearningRateScheduler(schedule, mode='batch', logger=logger)
 callbacks += [lrs]
 

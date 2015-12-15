@@ -30,15 +30,14 @@ batch_size = 64
 nb_classes = 102
 nb_epoch = 40
 
-experiment_name = '_bn_triangluar_no-b-constraint_e40'
+experiment_name = '_bn_triangluar-min-0.0001_e40'
 
 shuffle_data = True
 normalize_data = True
 batch_normalization = True
 train_on_batch = True
 
-b_constraint = None
-#b_constraint = zero()
+b_constraint = zero() # None
 
 
 # shape of the image (SHAPE x SHAPE)
@@ -192,7 +191,7 @@ callbacks += [logger]
 
 step_size = 4 * (nb_train_sample / batch_size) # according to the paper: 2 - 8 times the iterations per epoch
 #step_size = 12000
-schedule = TriangularLearningRate(lr=0.001, step_size=step_size, max_lr=0.02)
+schedule = TriangularLearningRate(lr=0.0001, step_size=step_size, max_lr=0.02)
 lrs = INILearningRateScheduler(schedule, mode='batch', logger=logger)
 callbacks += [lrs]
 

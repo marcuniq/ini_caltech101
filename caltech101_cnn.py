@@ -28,9 +28,9 @@ from ini_caltech101.keras_extensions.optimizers import INISGD
 # parameters
 batch_size = 64
 nb_classes = 102
-nb_epoch = 10
+nb_epoch = 40
 
-experiment_name = '_bn_triangluar-stepsize-2_e10'
+experiment_name = '_bn_triangluar_conv1-9x9_e40'
 
 shuffle_data = True
 normalize_data = True
@@ -130,7 +130,7 @@ else:
 
 
 model = Sequential()
-conv1 = Convolution2D(128, 5, 5,
+conv1 = Convolution2D(128, 9, 9,
                       subsample=(2, 2), # subsample = stride
                       b_constraint=b_constraint,
                       init='he_normal',

@@ -6,6 +6,8 @@ import tarfile, os
 from six.moves.urllib.request import FancyURLopener
 import numpy as np
 import scipy
+from sklearn.cross_validation import KFold, StratifiedKFold
+
 from ..keras_extensions.preprocessing.image import img_to_array, array_to_img, load_img, list_pictures
 
 def get_file(origin, datadir):
@@ -300,25 +302,24 @@ def already_split(path, test_size, stratify, seed):
     return False
 
 
-def load_split_paths(path):
-    X_train_path = os.path.abspath(os.path.join(path, '..', 'X_train.txt'))
-    y_train_path = os.path.abspath(os.path.join(path, '..', 'y_train.txt'))
-    X_test_path = os.path.abspath(os.path.join(path, '..', 'X_test.txt'))
-    y_test_path = os.path.abspath(os.path.join(path, '..', 'y_test.txt'))
+def load_paths(dir, fname_x, fname_y):
+    x_path = os.path.abspath(os.path.join(dir, '..', fname_x))
+    y_path = os.path.abspath(os.path.join(dir, '..', fname_y))
 
-    if os.path.isfile(X_train_path) and os.path.isfile(y_train_path) and \
-        os.path.isfile(X_test_path) and os.path.isfile(y_test_path):
+    if os.path.isfile(x_path) and os.path.isfile(y_path):
+        X = np.loadtxt(x_path, dtype=np.str_)
+        y = np.loadtxt(y_path, dtype=np.int)
 
-        X_train = np.loadtxt(X_train_path, dtype=np.str_)
-        y_train = np.loadtxt(y_train_path, dtype=np.int)
-        X_test = np.loadtxt(X_test_path, dtype=np.str_)
-        y_test = np.loadtxt(y_test_path, dtype=np.int)
-
-        return (X_train, y_train), (X_test, y_test)
+        return X, y
     else:
         raise Exception
 
-def save_split_paths(path, X_train, y_train, X_test, y_test, split_config):
+
+def load_train_test_split_paths(path):
+    return load_paths(path, 'X_train.txt', 'y_train.txt'), load_paths(path, 'X_test.txt', 'y_test.txt')
+
+
+def save_train_test_split_paths(path, X_train, y_train, X_test, y_test, split_config):
     X_train_path = os.path.abspath(os.path.join(path, '..', 'X_train.txt'))
     y_train_path = os.path.abspath(os.path.join(path, '..', 'y_train.txt'))
     X_test_path = os.path.abspath(os.path.join(path, '..', 'X_test.txt'))
@@ -329,5 +330,39 @@ def save_split_paths(path, X_train, y_train, X_test, y_test, split_config):
     np.savetxt(y_train_path, y_train, fmt='%s')
     np.savetxt(X_test_path, X_test, fmt='%s')
     np.savetxt(y_test_path, y_test, fmt='%s')
+
+    open(split_config_path, 'w').write(json.dumps(split_config))
+
+
+def make_cv_split(X_train, y_train, nb_folds=10, stratify=True, seed=None):
+
+    if stratify:
+        kf = StratifiedKFold(y_train, n_folds=nb_folds, random_state=seed)
+    else:
+        kf = KFold(len(y_train), n_folds=nb_folds, random_state=seed)
+
+    for i, (train_index, test_index) in enumerate(kf):
+        X_cv_train, X_cv_test = X_train[train_index], X_train[test_index]
+        y_cv_train, y_cv_test = y_train[train_index], y_train[test_index]
+
+        yield (X_cv_train, y_cv_train), (X_cv_test, y_cv_test)
+
+
+def load_cv_split_paths(path, cv_fold):
+        return load_paths(path, 'cv{}_X_train.txt'.format(cv_fold), 'cv{}_y_train.txt'.format(cv_fold)), \
+               load_paths(path, 'cv{}_X_test.txt'.format(cv_fold), 'cv{}_y_test.txt'.format(cv_fold))
+
+
+def save_cv_split_paths(path, X_cv_train, y_cv_train, X_cv_test, y_cv_test, cv_fold, split_config):
+    X_cv_train_path = os.path.abspath(os.path.join(path, '..', 'cv{}_X_train.txt'.format(cv_fold)))
+    y_cv_train_path = os.path.abspath(os.path.join(path, '..', 'cv{}_y_train.txt'.format(cv_fold)))
+    X_cv_test_path = os.path.abspath(os.path.join(path, '..', 'cv{}_X_test.txt'.format(cv_fold)))
+    y_cv_test_path = os.path.abspath(os.path.join(path, '..', 'cv{}_y_test.txt'.format(cv_fold)))
+    split_config_path = os.path.abspath(os.path.join(path, '..', 'cv{}_split_config.txt'.format(cv_fold)))
+
+    np.savetxt(X_cv_train_path, X_cv_train, fmt='%s')
+    np.savetxt(y_cv_train_path, y_cv_train, fmt='%s')
+    np.savetxt(X_cv_test_path, X_cv_test, fmt='%s')
+    np.savetxt(y_cv_test_path, y_cv_test, fmt='%s')
 
     open(split_config_path, 'w').write(json.dumps(split_config))

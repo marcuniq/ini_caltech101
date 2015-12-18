@@ -13,6 +13,8 @@ from keras.callbacks import EarlyStopping, LearningRateScheduler, CallbackList, 
 from keras.regularizers import l2
 from six.moves import range
 
+from sklearn.cross_validation import StratifiedKFold
+
 from ini_caltech101.dataset import caltech101, util
 from ini_caltech101.keras_extensions.constraints import zero
 from ini_caltech101.keras_extensions.callbacks import INIBaseLogger, INILearningRateScheduler, INILearningRateReducer, INIHistory
@@ -28,17 +30,15 @@ from ini_caltech101.keras_extensions.optimizers import INISGD
 # parameters
 batch_size = 64
 nb_classes = 102
-nb_epoch = 40
-
-experiment_name = '_bn_triangluar_conv1-3x3_e40'
+nb_epoch = 10
 
 shuffle_data = True
 normalize_data = True
 batch_normalization = True
-train_on_batch = True
 
 b_constraint = zero() # None
 
+nb_cv_folds = 10 # cross val folds
 
 # shape of the image (SHAPE x SHAPE)
 shapex, shapey = 240, 180
@@ -47,169 +47,129 @@ shapex, shapey = 240, 180
 image_dimensions = 3
 
 # path to image folder
-use_img_gen = True
-if use_img_gen:
-    path = os.path.expanduser(os.path.join('~', '.ini_caltech101', 'img-gen-resized', '101_ObjectCategories'))
-    experiment_name += '_img-gen'
-else:
-    path = os.path.expanduser(os.path.join('~', '.ini_caltech101', 'resized', '101_ObjectCategories'))
-    experiment_name = ''
+path = os.path.expanduser(os.path.join('~', '.ini_caltech101', 'img-gen-resized', '101_ObjectCategories'))
 
 
-if train_on_batch:
-    print("Loading paths...")
+print("Loading paths...")
+# X_test contain only paths to images
+(X_test, y_test) = util.load_paths(path, 'X_test.txt', 'y_test.txt')
 
-    # X_train / X_test contain only paths to images
-    (X_train, y_train), (X_test, y_test) = caltech101.load_paths(path=path,
-                                                                 test_size=0.1,
-                                                                 stratify=True,
-                                                                 seed=42
-                                                                 )
-    # split train into train / validation set
-    (X_train, y_train) = util.shuffle_data(X_train, y_train, seed=None)
-    (X_train, y_train), (X_val, y_val) = util.train_test_split(X_train, y_train, test_size=0.1, stratify=True)
+print("Doing {}-fold cross validation".format(nb_cv_folds))
+for cv_fold in range(nb_cv_folds):
+    print("fold {}".format(cv_fold))
+
+    experiment_name = '_bn_triangluar_cv{}_e{}'.format(cv_fold, nb_epoch)
+
+    # load cross val split
+    (X_train, y_train), (X_val, y_val) = util.load_cv_split_paths(path, cv_fold)
 
     if normalize_data:
         print("Calculating mean and std...")
         X_mean, X_std = util.calc_stats(X_train)
 
-else:
-    print("Loading data...")
-    (X_train, y_train), (X_test, y_test) = caltech101.load_data(path=path, shapex=shapex, shapey=shapey, seed=None)
+    nb_train_sample = X_train.shape[0]
+    nb_val_sample = X_val.shape[0]
+    nb_test_sample = X_test.shape[0]
 
-    X_train = X_train.astype("float32") / 255
-    X_test = X_test.astype("float32") / 255
+    print('X_train shape:', X_train.shape)
+    print(nb_train_sample, 'train samples')
+    if X_val is not None:
+        print(nb_val_sample, 'validation samples')
+    print(nb_test_sample, 'test samples')
 
-    if normalize_data:
-        print("Normalizing data...")
-        X_train_mean = np.mean(X_train, axis=0)
-        X_train = X_train - X_train_mean
-        X_train_std = np.std(X_train, axis=0)
-        X_train = X_train / X_train_std
+    # shuffle/permutation
+    if shuffle_data:
+        (X_train, y_train) = util.shuffle_data(X_train, y_train, seed=None)
+        (X_val, y_val) = util.shuffle_data(X_val, y_val, seed=None)
+        (X_test, y_test) = util.shuffle_data(X_test, y_test, seed=None)
 
-        X_test = X_test - X_train_mean
-        X_test = X_test / X_train_std
+    # cnn architecture
+    print("Building model...")
 
-    # one-hot-encoding
-    y_train = util.to_categorical(y_train, nb_classes)
-    y_test = util.to_categorical(y_test, nb_classes)
+    if batch_normalization:
+        weight_reg = 5e-4 # weight regularization value for l2
+        dropout = False
+        dropout_fc_layer = False
+        lr = 0.01
+        lr_decay = 5e-4
 
-nb_train_sample = X_train.shape[0]
-nb_val_sample = X_val.shape[0]
-nb_test_sample = X_test.shape[0]
+    else:
+        weight_reg = 5e-4 # weight regularization value for l2
+        dropout = True
+        lr = 0.005
+        lr_decay = 5e-4
 
-print('X_train shape:', X_train.shape)
-print(nb_train_sample, 'train samples')
-if X_val is not None:
-    print(nb_val_sample, 'validation samples')
-print(nb_test_sample, 'test samples')
+    model = Sequential()
+    conv1 = Convolution2D(128, 5, 5,
+                          subsample=(2, 2), # subsample = stride
+                          b_constraint=b_constraint,
+                          init='he_normal',
+                          W_regularizer=l2(weight_reg),
+                          input_shape=(image_dimensions, shapex, shapey))
+    model.add(conv1)
+    if batch_normalization:
+        model.add(BatchNormalization(mode=1))
+    model.add(Activation('relu'))
+    model.add(MaxPooling2D(pool_size=(2, 2), stride=(2, 2)))
+    if dropout:
+        model.add(Dropout(0.35))
 
+    conv2 = Convolution2D(256, 3, 3, b_constraint=b_constraint, init='he_normal', W_regularizer=l2(weight_reg))
+    model.add(conv2)
+    if batch_normalization:
+        model.add(BatchNormalization(mode=1))
+    model.add(Activation('relu'))
+    model.add(MaxPooling2D(pool_size=(2, 2), stride=(2, 2)))
+    if dropout:
+        model.add(Dropout(0.35))
 
-# shuffle/permutation
-if shuffle_data:
-    (X_train, y_train) = util.shuffle_data(X_train, y_train, seed=None)
-    (X_val, y_val) = util.shuffle_data(X_val, y_val, seed=None)
-    (X_test, y_test) = util.shuffle_data(X_test, y_test, seed=None)
+    model.add(ZeroPadding2D(padding=(1, 1)))
+    conv3 = Convolution2D(512, 3, 3, b_constraint=b_constraint, init='he_normal', W_regularizer=l2(weight_reg))
+    model.add(conv3)
+    if batch_normalization:
+        model.add(BatchNormalization(mode=1))
+    model.add(Activation('relu'))
+    model.add(MaxPooling2D(pool_size=(2, 2), stride=(2, 2)))
+    if dropout:
+        model.add(Dropout(0.35))
 
+    model.add(Flatten())
 
-# cnn architecture
-print("Building model...")
+    model.add(Dense(1024, b_constraint=b_constraint, init='he_normal', W_regularizer=l2(weight_reg)))
+    if batch_normalization:
+        model.add(BatchNormalization(mode=1))
+    model.add(Activation('relu'))
 
-if batch_normalization:
-    weight_reg = 5e-4 # weight regularization value for l2
-    dropout = False
-    dropout_fc_layer = False
-    lr = 0.01
-    lr_decay = 5e-4
+    if dropout or dropout_fc_layer:
+        model.add(Dropout(0.5))
 
-else:
-    weight_reg = 5e-4 # weight regularization value for l2
-    dropout = True
-    lr = 0.005
-    lr_decay = 5e-4
+    model.add(Dense(nb_classes, b_constraint=b_constraint, init='he_normal', W_regularizer=l2(weight_reg)))
+    model.add(Activation('softmax'))
 
+    print('Compiling model...')
+    sgd = INISGD(lr=lr, decay=lr_decay, momentum=0.9, nesterov=True)
+    model.compile(loss='categorical_crossentropy', optimizer=sgd)
 
-model = Sequential()
-conv1 = Convolution2D(128, 3, 3,
-                      subsample=(2, 2), # subsample = stride
-                      b_constraint=b_constraint,
-                      init='he_normal',
-                      W_regularizer=l2(weight_reg),
-                      input_shape=(image_dimensions, shapex, shapey))
-model.add(conv1)
-if batch_normalization:
-    model.add(BatchNormalization(mode=1))
-model.add(Activation('relu'))
-model.add(MaxPooling2D(pool_size=(2, 2), stride=(2, 2)))
-if dropout:
-    model.add(Dropout(0.35))
+    #model.load_weights('results/2015-12-12_18.15.01_no-bn_lr-0.001_e20_img-gen_weights.hdf5')
 
-conv2 = Convolution2D(256, 3, 3, b_constraint=b_constraint, init='he_normal', W_regularizer=l2(weight_reg))
-model.add(conv2)
-if batch_normalization:
-    model.add(BatchNormalization(mode=1))
-model.add(Activation('relu'))
-model.add(MaxPooling2D(pool_size=(2, 2), stride=(2, 2)))
-if dropout:
-    model.add(Dropout(0.35))
+    callbacks = []
+    history = INIHistory()
+    callbacks += [history]
 
-model.add(ZeroPadding2D(padding=(1, 1)))
-conv3 = Convolution2D(512, 3, 3, b_constraint=b_constraint, init='he_normal', W_regularizer=l2(weight_reg))
-model.add(conv3)
-if batch_normalization:
-    model.add(BatchNormalization(mode=1))
-model.add(Activation('relu'))
-model.add(MaxPooling2D(pool_size=(2, 2), stride=(2, 2)))
-if dropout:
-    model.add(Dropout(0.35))
+    logger = INIBaseLogger()
+    callbacks += [logger]
 
-model.add(Flatten())
+    step_size = 8 * (nb_train_sample / batch_size) # according to the paper: 2 - 8 times the iterations per epoch
+    schedule = TriangularLearningRate(lr=0.001, step_size=step_size, max_lr=0.02)
+    lrs = INILearningRateScheduler(schedule, mode='batch', logger=logger)
+    callbacks += [lrs]
 
-model.add(Dense(1024, b_constraint=b_constraint, init='he_normal', W_regularizer=l2(weight_reg)))
-if batch_normalization:
-    model.add(BatchNormalization(mode=1))
-model.add(Activation('relu'))
+    mcp = ModelCheckpoint('results/experiment' + experiment_name + '_epoch{epoch}_weights.hdf5', save_best_only=True)
+    callbacks += [mcp]
 
-if dropout or dropout_fc_layer:
-    model.add(Dropout(0.5))
+    #lrr = INILearningRateReducer(monitor='val_acc', improve='increase', decrease_factor=0.1, patience=3, stop=3, verbose=1)
+    #callbacks += [lrr]
 
-model.add(Dense(nb_classes, b_constraint=b_constraint, init='he_normal', W_regularizer=l2(weight_reg)))
-model.add(Activation('softmax'))
-
-print('Compiling model...')
-sgd = INISGD(lr=lr, decay=lr_decay, momentum=0.9, nesterov=True)
-model.compile(loss='categorical_crossentropy', optimizer=sgd)
-
-#model.load_weights('results/2015-12-12_18.15.01_no-bn_lr-0.001_e20_img-gen_weights.hdf5')
-
-callbacks = []
-history = INIHistory()
-callbacks += [history]
-
-logger = INIBaseLogger()
-callbacks += [logger]
-
-step_size = 2 * (nb_train_sample / batch_size) # according to the paper: 2 - 8 times the iterations per epoch
-#step_size = 12000
-schedule = TriangularLearningRate(lr=0.001, step_size=step_size, max_lr=0.02)
-lrs = INILearningRateScheduler(schedule, mode='batch', logger=logger)
-callbacks += [lrs]
-
-mcp = ModelCheckpoint('results/experiment' + experiment_name + '_epoch{epoch}_weights.hdf5', save_best_only=True)
-callbacks += [mcp]
-
-#lrr = INILearningRateReducer(monitor='val_acc', improve='increase', decrease_factor=0.1, patience=3, stop=3, verbose=1)
-#callbacks += [lrr]
-
-
-if not train_on_batch:
-    model.fit(X_train, y_train, batch_size=batch_size, nb_epoch=nb_epoch,
-              validation_data=(X_test, y_test), show_accuracy=True, verbose=1,
-              callbacks=callbacks
-              )
-    print(history.history)
-
-else:
 
     def run_batch(X, y, mode):
         loss = []
@@ -313,7 +273,7 @@ else:
 
     callbacks.on_train_end(logs=training_end_logs)
 
-dt = datetime.datetime.now()
-open('results/{:%Y-%m-%d_%H.%M.%S}{}_architecture.json'.format(dt, experiment_name), 'w').write(model.to_json())
-open('results/{:%Y-%m-%d_%H.%M.%S}{}_history.json'.format(dt, experiment_name), 'w').write(json.dumps(history.history))
-model.save_weights('results/{:%Y-%m-%d_%H.%M.%S}{}_weights.hdf5'.format(dt, experiment_name))
+    dt = datetime.datetime.now()
+    open('results/{:%Y-%m-%d_%H.%M.%S}{}_architecture.json'.format(dt, experiment_name), 'w').write(model.to_json())
+    open('results/{:%Y-%m-%d_%H.%M.%S}{}_history.json'.format(dt, experiment_name), 'w').write(json.dumps(history.history))
+    model.save_weights('results/{:%Y-%m-%d_%H.%M.%S}{}_weights.hdf5'.format(dt, experiment_name))

@@ -90,7 +90,7 @@ def load_paths(path="", test_size=0.2, stratify=True, seed=None):
 
     if util.already_split(path, test_size, stratify, seed):
         print("Load train/test split from disk...")
-        return util.load_split_paths(path)
+        return util.load_train_test_split_paths(path)
     else:
         X_dict = util.load_label_path_dict(path, seed=seed)
 
@@ -110,6 +110,6 @@ def load_paths(path="", test_size=0.2, stratify=True, seed=None):
                         'train_samples': X_train.shape[0],
                         'test_samples': X_test.shape[0]}
 
-        util.save_split_paths(path, X_train, y_train, X_test, y_test, split_config)
+        util.save_train_test_split_paths(path, X_train, y_train, X_test, y_test, split_config)
 
         return (X_train, y_train), (X_test, y_test)

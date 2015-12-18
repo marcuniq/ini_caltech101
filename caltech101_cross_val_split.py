@@ -18,18 +18,19 @@ seed = 42
                                                              seed=seed
                                                              )
 
-nb_train_samples = X_train.shape[0]
-nb_test_samples = X_test.shape[0]
+(X_train, y_train) = util.shuffle_data(X_train, y_train, seed=seed)
 
-print('X_train shape:', X_train.shape)
-print(nb_train_samples, 'train samples')
-print(nb_test_samples, 'test samples')
+nb_folds = 10
 
-split_config = {'path': path,
-                'test_size': test_size,
-                'stratify': stratify,
-                'seed': seed,
-                'train_samples': nb_train_samples,
-                'test_samples': nb_test_samples}
+for i, ((X_cv_train, y_cv_train), (X_cv_test, y_cv_test)) in \
+        enumerate(util.make_cv_split(X_train, y_train, nb_folds=nb_folds, stratify=stratify, seed=seed)):
 
-util.save_train_test_split_paths(path, X_train, y_train, X_test, y_test, split_config)
+    split_config = {'path': path,
+                    'fold': i,
+                    'nb_folds': nb_folds,
+                    'stratify': stratify,
+                    'seed': seed,
+                    'train_samples': len(X_cv_train),
+                    'test_samples': len(X_cv_test)}
+
+    util.save_cv_split_paths(path, X_cv_train, y_cv_train, X_cv_test, y_cv_test, i, split_config)

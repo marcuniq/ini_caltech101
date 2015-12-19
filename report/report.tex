@@ -30,7 +30,18 @@ The task for this bachelor practical was to train a convolutional neural network
 This section will give a short introduction to the Caltech-101 dataset, the used methods and techniques.
 
 \subsection{Caltech-101}
-\cite{Fei-Fei2007}
+Caltech-101 is a dataset of pictures of objects, which was collected in September 2003 by Fei-Fei Li, Marco Andreetto, and Marc 'Aurelio Ranzato at the California Institute of Technology\cite{Fei-Fei2007}.
+Most categories have about 50 images, but the number ranges from 40 to 800 per category \cite{Fei-Fei2007}.
+Caltech-101 contains a total of 9'146 images, split between 101 distinct object categories (faces, watches, ants, pianos, etc.) and a background category \cite{Caltech101Wiki}.
+The size of each image is roughly 300 x 200 pixels \cite{Fei-Fei2007}.\\
+
+Unlike other datasets, Caltech-101 doesn't have a predefined split between train and test images.
+\cite{Fei-Fei2007} suggest to use a fixed number of images per category for training and testing.
+Due to the fact that categories have vastly different number of images, the accuracy per category can also vary a lot.
+On an additional note, \cite{Fei-Fei2007} pointed out that if a fixed number of images per category is chosen, then the overall error rate should be reported.
+However, if all the available images are being used for testing, then the average error rate across categories should be reported.\\
+
+The state of the art classification on the Caltech-101 dataset has an accuracy of 91.44\% \cite{He2014}.
 
 
 \subsection{Convolutional Neural Network}
@@ -45,6 +56,7 @@ Complex cells have larger receptive fields and are locally invariant to the exac
 
 Like their biological relatives, units in a CNN take advantage of the 2D structure of the input data (images or other 2D input such as a speech signal).
 This is achieved with local connections and tied weights followed by some form of pooling which results in translation invariant features \cite{StanfordTutCNN2015}.
+
 
 \subsection{Batch Normalization}
 bn \cite{Ioffe2015}
@@ -67,8 +79,8 @@ However, Smith demonstrates the surprising phenomenon that increasing the learni
 Since the heights and widths of the Caltech-101 images vary, all images were scaled to a common size. 
 Like \cite{Orchard2015}, each image was resized to be as large as possible while maintaining the original aspect ratio and ensuring that width does not exceed 240 pixels and height does not exceed 180 pixels.
 
-After running a few experiments with a fairly deep architecture, it became clear, that the roughly 10'000 images of the Caltech-101 dataset were not enough to accomplish a decent test accuracy.
-Starting from the original dataset, data augmentation was pursued by randomly transform each picture ten times, and thus produce approximately 100'000 images.
+After running a few experiments with a fairly deep architecture, it became clear, that the roughly 9k images of the Caltech-101 dataset were not enough to accomplish a decent test accuracy.
+Starting from the original dataset, data augmentation was pursued by randomly transform each picture ten times, and thus leading to approximately 100k images (including the original dataset).
 
 Using an image data generator \cite{keras}, we ended up with the following augmentation parameters:
 \begin{itemize}

@@ -1,8 +1,29 @@
 \documentclass[a4paper, 11pt]{article}
 \usepackage[utf8]{inputenc}
+\inputencoding{utf8}
 \usepackage[english]{babel}
 \usepackage{cite}
 \usepackage{gensymb}
+\usepackage{graphicx}
+\graphicspath{ {images/} }
+
+% Lengths and indenting
+\setlength{\textwidth}{16.5cm}
+\setlength{\marginparwidth}{1.5cm}
+\setlength{\parindent}{0cm}
+\setlength{\parskip}{0.15cm}
+\setlength{\textheight}{22cm}
+\setlength{\oddsidemargin}{0cm}
+\setlength{\evensidemargin}{\oddsidemargin}
+\setlength{\topmargin}{0cm}
+\setlength{\headheight}{0cm}
+\setlength{\headsep}{0cm}
+
+\usepackage{hyperref} 
+\usepackage[square,numbers]{natbib} 
+\bibliographystyle{plainnat}
+
+
 
 %opening
 \title{Bachelor practical: Report}
@@ -24,6 +45,7 @@ The resulting weights of the trained neural network can then be used to create a
 One constraint for this to work is that units must have zero bias.\\
 
 The task for this bachelor practical was to train a convolutional neural network on the Caltech-101 dataset.
+
 
 
 \section{Image Classification on Caltech-101}
@@ -87,7 +109,7 @@ Using an image data generator \cite{keras}, we ended up with the following augme
 	\item rotation: random with angles in the range 0$\degree$ to 20$\degree$
 	\item translation: random with shift between 0\% and 20\% of total width/height
 	\item flipping: horizontal/vertical, yes or no (Bernoulli)
-	\item zooming: random zoom axis by factor +/- 20\%
+	\item zooming: random zoom axis by +/- 20\%
 \end{itemize}
 
 The created images were then resized again, but with the difference that the images were padded with the edge pixels to fill the needed aspect ratio.
@@ -98,12 +120,15 @@ The generated images are available online and can be downloaded under \cite{Unte
 
 
 \subsection{Architecture}
-architectures inspired by Simonyan2015
+Our architectures were inspired by \cite{Simonyan2015}.
+However, due to the fact that the neural network will be converted into a spiking neural network, we had two constraints.
+The first constraint was that units must not have any bias.
+The second constraint had to do with performance: Since the network should be able to classify pictures near real-time, we limited the depth of our architecture to three convolutional and two fully connected layers.
+Obviously, when introducing batch normalization, there are more layers.
+In spite of those, the speed of classification shouldn't fundamentally change, since batch normalization is only a linear transformation.
 
-constraints: 3 convolutional layers, 2 fc
 
-
-\begin{table}[h!]
+\begin{table}[!h]
 	\begin{center}
 		\begin{tabular}{|c|c|}
 			\hline Layer type & Parameters \\ 
@@ -127,7 +152,7 @@ constraints: 3 convolutional layers, 2 fc
 \end{table}
 
 
-\begin{table}[h!]
+\begin{table}[!h]
 	\begin{center}
 		\begin{tabular}{|c|c|}
 			\hline Layer type & Parameters \\ 
@@ -153,7 +178,7 @@ constraints: 3 convolutional layers, 2 fc
 	\caption{Network Architecture with Batch Normalization}
 \end{table}
 
-\begin{table}[h!]
+\begin{table}[!h]
 	\begin{center}
 		\begin{tabular}{|c|c|}
 			\hline Layer type & Parameters \\ 
@@ -183,13 +208,10 @@ constraints: 3 convolutional layers, 2 fc
 
 
 \subsection{Training}
-train / test split
-81378 train samples, 9104 validation samples, 10102 test samples -> train/test split saved to disk
-unlike MNIST, caltech-101 doesnt have a predefined split between train/test data
+The splitting of the generated images into training and test samples was stratified, meaning that each class had 90\% in the training set and 10\% in the test set.
 
-sgd with nesterov
-
-learning rate schedule
+Stochastic gradient descent was used as the optimizer, with Nesterov momentum of 0.9 and a learning rate decay of 5e-4.
+Batch size was 64 most of the time, but was decreased for some architecture configurations due to GPU memory overallocation.
 
 \subsection{Implementation Details}
 The neural network framework of choice was Keras \cite{keras}.
@@ -207,13 +229,23 @@ The source code for the entire bachelor practical can be found at \cite{Unternae
 w/o batch normalization, w/o data normalization
 with bn, with data normalization
 
+\begin{figure}[!h]
+	\includegraphics[width=\linewidth]{test.png}
+	\caption{Training/testing with batch normalization}
+	\label{fig:bn}
+\end{figure}
+
+\begin{figure}[!h]
+	\includegraphics[width=\linewidth]{test.png}
+	\caption{Training/testing without batch normalization}
+	\label{fig:no_bn}
+\end{figure}
 
 \section{Conclusion}
 enough data is important
 bn can speed up training time significantly
 
 
-
-\bibliographystyle{abbrv}
-\bibliography{C:/Users/Marco/Documents/MendeleyBibtex/Bsc-Practical}
+\clearpage
+\bibliography{C:/Users/Marco/Documents/MendeleyBibtex/Bsc-Practical,websites}
 \end{document}

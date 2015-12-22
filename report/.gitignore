@@ -1,4 +1,6 @@
 *
 !*.tex
 !*.pdf
+!*.bib
+!images
 !.gitignore

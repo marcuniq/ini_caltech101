@@ -47,7 +47,7 @@ shapex, shapey = 240, 180
 image_dimensions = 3
 
 # path to image folder
-use_img_gen = True
+use_img_gen = True 
 if use_img_gen:
     path = os.path.expanduser(os.path.join('~', '.ini_caltech101', 'img-gen-resized', '101_ObjectCategories'))
     experiment_name += '_img-gen'

@@ -23,10 +23,11 @@
 \setlength{\headsep}{0cm}
 
 \usepackage{hyperref} 
-\usepackage[square,numbers]{natbib} 
-\bibliographystyle{plainnat}
+\usepackage[square,numbers]{natbib}
+\bibliographystyle{abbrvnat}
 
 \usepackage{cleveref}
+\usepackage{tabularx}
 
 \newcommand*{\nolink}[1]{%
 	\begin{NoHyper}#1\end{NoHyper}%
@@ -164,13 +165,12 @@ However, due to the fact that the neural network will be converted into a spikin
 The first constraint was that units must not have any bias.
 The second constraint had to do with performance: Since the network should be able to classify pictures near real-time, we limited the depth of our architecture to three convolutional and two fully connected layers.
 Obviously, when introducing batch normalization, there are more layers.
-In spite of those, the speed of classification shouldn't fundamentally change, since batch normalization is only a linear transformation.
-
+Those additional layers should not have a high impact on the speed of classification though, since batch normalization is only a linear transformation.
 
 \begin{table}[!h]
 	\begin{center}
-		\begin{tabular}{|c|c|}
-			\hline Layer type & Parameters \\ 
+		\begin{tabularx}{.5\linewidth}{|X|l|}
+			\hline \textbf{Layer type} & \textbf{Parameters} \\ 
 			\hline convolution & 128x5x5, stride 2x2 \\ 
 			\hline relu &\\
 			\hline maxpool &  2x2\\ 
@@ -185,16 +185,17 @@ In spite of those, the speed of classification shouldn't fundamentally change, s
 			\hline full &  102 \\
 			\hline softmax & \\
 			\hline
-		\end{tabular}
+		\end{tabularx}
 	\end{center}
 	\caption{Base Network Architecture}
+	\label{tab:base-arch}
 \end{table}
 
 
 \begin{table}[!h]
 	\begin{center}
-		\begin{tabular}{|c|c|}
-			\hline Layer type & Parameters \\ 
+		\begin{tabularx}{.5\linewidth}{|X|l|}
+			\hline \textbf{Layer type} & \textbf{Parameters} \\ 
 			\hline convolution & 128x5x5, stride 2x2 \\ 
 			\hline batch normalization & \\
 			\hline relu &\\
@@ -212,15 +213,16 @@ In spite of those, the speed of classification shouldn't fundamentally change, s
 			\hline full &  102 \\
 			\hline softmax & \\
 			\hline
-		\end{tabular}
+		\end{tabularx}
 	\end{center}
 	\caption{Network Architecture with Batch Normalization}
+	\label{tab:bn-arch}
 \end{table}
 
 \begin{table}[!h]
 	\begin{center}
-		\begin{tabular}{|c|c|}
-			\hline Layer type & Parameters \\ 
+		\begin{tabularx}{.5\linewidth}{|X|l|}
+			\hline \textbf{Layer type} & \textbf{Parameters} \\ 
 			\hline convolution & 128x5x5, stride 2x2 \\ 
 			\hline relu &\\
 			\hline maxpool &  2x2\\ 
@@ -239,12 +241,13 @@ In spite of those, the speed of classification shouldn't fundamentally change, s
 			\hline full &  102 \\
 			\hline softmax & \\
 			\hline
-		\end{tabular}
+		\end{tabularx}
 	\end{center}
 	\caption{Network Architecture without Batch Normalization}
+	\label{tab:no-bn-arch}
 \end{table}
 
-
+\Cref{tab:base-arch,tab:bn-arch,tab:no-bn-arch} show the used network architectures.
 
 \subsection{Training}
 The splitting of the generated images into training and test samples was stratified, meaning that each class had 90\% in the training set and 10\% in the test set.

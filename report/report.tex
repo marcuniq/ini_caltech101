@@ -6,6 +6,9 @@
 \usepackage{gensymb}
 \usepackage{graphicx}
 \graphicspath{ {images/} }
+\usepackage[boxed]{algorithm2e}
+\usepackage{amsmath}
+\usepackage{relsize}
 
 % Lengths and indenting
 \setlength{\textwidth}{16.5cm}
@@ -23,7 +26,11 @@
 \usepackage[square,numbers]{natbib} 
 \bibliographystyle{plainnat}
 
+\usepackage{cleveref}
 
+\newcommand*{\nolink}[1]{%
+	\begin{NoHyper}#1\end{NoHyper}%
+}
 
 %opening
 \title{Bachelor practical: Report}
@@ -52,13 +59,13 @@ The task for this bachelor practical was to train a convolutional neural network
 This section will give a short introduction to the Caltech-101 dataset, the used methods and techniques.
 
 \subsection{Caltech-101}
-Caltech-101 is a dataset of pictures of objects, which was collected in September 2003 by Fei-Fei Li, Marco Andreetto, and Marc 'Aurelio Ranzato at the California Institute of Technology\cite{Fei-Fei2007}.
+Caltech-101 is a dataset of pictures of objects, which was collected in September 2003 by \citet{Fei-Fei2007} at the California Institute of Technology.
 Most categories have about 50 images, but the number ranges from 40 to 800 per category \cite{Fei-Fei2007}.
 Caltech-101 contains a total of 9'146 images, split between 101 distinct object categories (faces, watches, ants, pianos, etc.) and a background category \cite{Caltech101Wiki}.
-The size of each image is roughly 300 x 200 pixels \cite{Fei-Fei2007}.\\
+The size of each image is roughly 300 x 200 pixels \cite{Fei-Fei2007}.
 
 Unlike other datasets, Caltech-101 doesn't have a predefined split between train and test images.
-\cite{Fei-Fei2007} suggest to use a fixed number of images per category for training and testing.
+\citet{Fei-Fei2007} suggest to use a fixed number of images per category for training and testing.
 Due to the fact that categories have vastly different number of images, the accuracy per category can also vary a lot.
 On an additional note, \cite{Fei-Fei2007} pointed out that if a fixed number of images per category is chosen, then the overall error rate should be reported.
 However, if all the available images are being used for testing, then the average error rate across categories should be reported.\\
@@ -81,17 +88,49 @@ This is achieved with local connections and tied weights followed by some form o
 
 
 \subsection{Batch Normalization}
-bn \cite{Ioffe2015}
+Stochastic gradient descent (SGD) and its variants are proven to be an effective way of training deep networks \cite{Ioffe2015}.
+However, they require careful tuning of the model-hyperparameters, specifically the learning rate used in optimization, as well as the initial values for the model parameters \cite{Ioffe2015}.
+Inputs to each layer are affected by parameters of all preceding layers, which makes training highly complicated \cite{Ioffe2015}.
+Thus, the smallest changes to the network amplify as the network becomes deeper \cite{Ioffe2015}.
+The problem seems to be the change in the distribution of layer's inputs, because the layers need to continuously adapt to the new distribution \cite{Ioffe2015}.
+When the input distribution to a learning system changes, it is said to experience covariate shift \cite{Shimodaira2000}.
+
+Batch normalization is a new mechanism that takes a step towards reducing internal covariate shift, and in doing so dramatically accelerates the training of deep neural nets \cite{Ioffe2015}.
+It accomplishes this via a normalization step that fixes the means and variances of layer inputs \cite{Ioffe2015}.
+Simplifications of the idea have to be made in order to accommodate mini-batches in stochastic gradient training: each mini-batch produces estimates of the mean and variance of each activation.
+For completeness, the batch normalization transform algorithm by \citet{Ioffe2015} can be seen in \autoref{alg:bn}.
+
+For convolutional layers, the normalization also has to obey the convolutional property – so that different elements of the same feature map, at different locations, are normalized in the same way \cite{Ioffe2015}.
+To achieve this, we jointly normalize all the activations in a mini-batch, over all locations \cite{Ioffe2015}.
+
+\begin{algorithm}[H]
+	\DontPrintSemicolon
+	\SetKwInOut{Input}{Input}\SetKwInOut{Output}{Output}
+	\Input{Values of x over a mini-batch: $B = \{x_{1..m}\}$; \newline Parameters to be learned: $\gamma, \beta$}
+	\Output{\{$y_i = BN_{\gamma,\beta}(x_i)$\}}
+	\BlankLine
+	\begin{algomathdisplay}
+		\begin{aligned}
+		\mu_B &\leftarrow \frac{1}{m} {\sum}_{i=1}^{m} x_i & \text{// mini-batch mean}&\\
+		\sigma_B^2 &\leftarrow \frac{1}{m} {\sum}_{i=1}^{m} (x_i - \mu_B)^2 & \text{// mini-batch variance}&\\
+		\hat{x_i} &\leftarrow \frac{x_i - \mu_B}{\sqrt{\sigma_B^2 + \epsilon}} & \text{// normalize}&\\
+		y_i &\leftarrow \gamma \hat{x_i} + \beta \equiv BN_{\gamma,\beta}(x_i) & \text{// scale and shift}&\\
+		\end{aligned}
+	\end{algomathdisplay}
+
+	\caption{Batch Normalizing Transform, applied to activation x over a mini-batch}
+	\label{alg:bn}
+\end{algorithm}
 
 
 
 \subsection{Cyclical Learning Rates}
-In \cite{Bengio2012}, Bengio says that the learning rate is the most important hyper-parameter to optimize and if "there is only time to optimize one hyper-parameter and one uses stochastic gradient descent, then this is the hyper-parameter that is worth tuning".
+\citet*{Bengio2012} says that the learning rate is the most important hyper-parameter to optimize and if "there is only time to optimize one hyper-parameter and one uses stochastic gradient descent, then this is the hyper-parameter that is worth tuning".
 It is well known that too small a learning rate will make a training algorithm converge slowly while too large a learning rate will make the training algorithm diverge \cite{Zeiler2012}.
 Hence one must experiment with a variety of learning rates and schedules (i.e., the timing of learning rate changes) \cite{Smith2015}.
 
 The conventional wisdom is that the learning rate should be a single value that monotonically decreases during the training \cite{Smith2015}.
-However, Smith demonstrates the surprising phenomenon that increasing the learning rate is overall beneficial and thus proposes to let the global learning rate vary cyclically within a band of values rather than setting it to a fixed value \cite{Smith2015}.
+However, \nolink{\citeauthor{Smith2015}} demonstrates the surprising phenomenon that increasing the learning rate is overall beneficial and thus proposes to let the global learning rate vary cyclically within a band of values rather than setting it to a fixed value \cite{Smith2015}.
 
 
 
@@ -99,7 +138,7 @@ However, Smith demonstrates the surprising phenomenon that increasing the learni
 
 \subsection{Data Pre-processing \& Data Augmentation}
 Since the heights and widths of the Caltech-101 images vary, all images were scaled to a common size. 
-Like \cite{Orchard2015}, each image was resized to be as large as possible while maintaining the original aspect ratio and ensuring that width does not exceed 240 pixels and height does not exceed 180 pixels.
+Like \citet{Orchard2015}, each image was resized to be as large as possible while maintaining the original aspect ratio and ensuring that width does not exceed 240 pixels and height does not exceed 180 pixels.
 
 After running a few experiments with a fairly deep architecture, it became clear, that the roughly 9k images of the Caltech-101 dataset were not enough to accomplish a decent test accuracy.
 Starting from the original dataset, data augmentation was pursued by randomly transform each picture ten times, and thus leading to approximately 100k images (including the original dataset).
@@ -120,7 +159,7 @@ The generated images are available online and can be downloaded under \cite{Unte
 
 
 \subsection{Architecture}
-Our architectures were inspired by \cite{Simonyan2015}.
+Our architectures were inspired by \citet{Simonyan2015}.
 However, due to the fact that the neural network will be converted into a spiking neural network, we had two constraints.
 The first constraint was that units must not have any bias.
 The second constraint had to do with performance: Since the network should be able to classify pictures near real-time, we limited the depth of our architecture to three convolutional and two fully connected layers.

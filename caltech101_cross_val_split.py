@@ -22,15 +22,23 @@ seed = 42
 
 nb_folds = 10
 
-for i, ((X_cv_train, y_cv_train), (X_cv_test, y_cv_test)) in \
+for cv_fold, ((X_cv_train, y_cv_train), (X_cv_test, y_cv_test)) in \
         enumerate(util.make_cv_split(X_train, y_train, nb_folds=nb_folds, stratify=stratify, seed=seed)):
 
     split_config = {'path': path,
-                    'fold': i,
+                    'fold': cv_fold,
                     'nb_folds': nb_folds,
                     'stratify': stratify,
                     'seed': seed,
                     'train_samples': len(X_cv_train),
                     'test_samples': len(X_cv_test)}
 
-    util.save_cv_split_paths(path, X_cv_train, y_cv_train, X_cv_test, y_cv_test, i, split_config)
+    print("Save split for fold {}".format(cv_fold))
+    util.save_cv_split_paths(path, X_cv_train, y_cv_train, X_cv_test, y_cv_test, cv_fold, split_config)
+
+    print("Calculating mean and std...")
+    X_mean, X_std = util.calc_stats(X_cv_train)
+    print("Save stats")
+    util.save_cv_stats(path, X_mean, X_std, cv_fold)
+
+

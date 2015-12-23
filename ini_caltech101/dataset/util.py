@@ -8,6 +8,8 @@ import numpy as np
 import scipy
 from sklearn.cross_validation import KFold, StratifiedKFold
 
+from keras.models import make_batches
+
 from ..keras_extensions.preprocessing.image import img_to_array, array_to_img, load_img, list_pictures
 
 def get_file(origin, datadir):
@@ -111,7 +113,7 @@ def resize_imgs(input_dir, output_dir, shapex, shapey, quality=90, verbose=1):
     return output_dir
 
 
-def shuffle_data(X, y, seed=None):
+def shuffle_data(X, y=None, seed=None):
     # shuffle data
     shuffle_index = np.arange(X.shape[0])
 
@@ -120,16 +122,19 @@ def shuffle_data(X, y, seed=None):
 
     np.random.shuffle(shuffle_index)
     X = X[shuffle_index]
-    y = y[shuffle_index]
+    if y is not None:
+        y = y[shuffle_index]
+        return X, y
+    return X
 
-    return X, y
 
+def load_samples(fpaths, nb_samples):
+    # determine height / width
+    img = load_img(fpaths[0])
+    (width, height) = img.size
 
-def load_samples(fpaths, sample_label, nb_samples, max_width, max_height):
-    if type(sample_label) != np.ndarray:
-        sample_label = np.array([sample_label for x in range(nb_samples)])
-
-    sample_data = np.zeros((nb_samples, 3, max_height, max_width), dtype="uint8")
+    # allocate memory
+    sample_data = np.zeros((nb_samples, 3, height, width), dtype="uint8")
 
     counter = 0
     for i in range(nb_samples):
@@ -140,7 +145,7 @@ def load_samples(fpaths, sample_label, nb_samples, max_width, max_height):
         sample_data[counter, 2, :, :] = np.array(b)
         counter += 1
 
-    return sample_data, sample_label
+    return sample_data
 
 
 def to_categorical(y, nb_classes=None):
@@ -366,3 +371,154 @@ def save_cv_split_paths(path, X_cv_train, y_cv_train, X_cv_test, y_cv_test, cv_f
     np.savetxt(y_cv_test_path, y_cv_test, fmt='%s')
 
     open(split_config_path, 'w').write(json.dumps(split_config))
+
+
+def save_cv_stats(path, X_mean, X_std, cv_fold):
+    X_cv_mean_path = os.path.abspath(os.path.join(path, '..', 'cv{}_X_mean.npy'.format(cv_fold)))
+    X_cv_std_path = os.path.abspath(os.path.join(path, '..', 'cv{}_X_std.npy'.format(cv_fold)))
+
+    np.save(X_cv_mean_path, X_mean)
+    np.save(X_cv_std_path, X_std)
+
+
+def load_cv_stats(path, cv_fold):
+    X_cv_mean_path = os.path.abspath(os.path.join(path, '..', 'cv{}_X_mean.npy'.format(cv_fold)))
+    X_cv_std_path = os.path.abspath(os.path.join(path, '..', 'cv{}_X_std.npy'.format(cv_fold)))
+
+    X_mean = np.load(X_cv_mean_path)
+    X_std = np.load(X_cv_std_path)
+
+    return X_mean, X_std
+
+
+def train_on_batch(model, X, y, nb_classes, callbacks=None, normalize=None, batch_size=32, class_weight=None, shuffle=False):
+    loss = []
+    acc = []
+    size = []
+
+    nb_samples = X.shape[0]
+    out_labels = ['loss', 'acc']
+
+    if shuffle:
+        X, y = shuffle_data(X, y)
+
+    # batch train
+    batches = make_batches(nb_samples, batch_size)
+    for batch_index, (batch_start, batch_end) in enumerate(batches):
+        batch_logs = {}
+        batch_logs['batch'] = batch_index
+        batch_logs['size'] = batch_end - batch_start
+
+        if callbacks:
+            callbacks.on_batch_begin(batch_index, batch_logs)
+
+        # load the actual images; X only contains paths
+        X_batch = load_samples(X[batch_start:batch_end], batch_end - batch_start)
+        X_batch = X_batch.astype("float32") / 255
+
+        y_batch = y[batch_start:batch_end]
+        y_batch = to_categorical(y_batch, nb_classes)
+
+        if normalize:
+            X_batch = X_batch - normalize[0] # mean
+            X_batch /= normalize[1] # std
+
+        outs = model.train_on_batch(X_batch, y_batch, accuracy=True, class_weight=class_weight)
+
+        if type(outs) != list:
+            outs = [outs]
+        for l, o in zip(out_labels, outs):
+            batch_logs[l] = o
+
+        if callbacks:
+            callbacks.on_batch_end(batch_index, batch_logs)
+
+    return loss, acc, size
+
+
+def test_on_batch(model, X, y, nb_classes, normalize=None, batch_size=32, shuffle=False):
+    loss = []
+    acc = []
+    size = []
+
+    nb_samples = X.shape[0]
+
+    if shuffle:
+        X, y = shuffle_data(X, y)
+
+    # batch test
+    batches = make_batches(nb_samples, batch_size)
+    for batch_index, (batch_start, batch_end) in enumerate(batches):
+        batch_logs = {}
+        batch_logs['batch'] = batch_index
+        batch_logs['size'] = batch_end - batch_start
+
+        # load the actual images; X only contains paths
+        X_batch = load_samples(X[batch_start:batch_end], batch_end - batch_start)
+        X_batch = X_batch.astype("float32") / 255
+
+        y_batch = y[batch_start:batch_end]
+        y_batch = to_categorical(y_batch, nb_classes)
+
+        if normalize:
+            X_batch = X_batch - normalize[0] # mean
+            X_batch /= normalize[1] # std
+
+        outs = model.test_on_batch(X_batch, y_batch, accuracy=True)
+
+        # logging of the loss, acc and batch_size
+        loss += [float(outs[0])]
+        acc += [float(outs[1])]
+        size += [batch_end - batch_start]
+
+    return loss, acc, size
+
+
+def predict_on_batch(model, X, normalize=None, batch_size=32, shuffle=False, verbose=0):
+    predictions = []
+
+    nb_samples = X.shape[0]
+
+    if shuffle:
+        X = shuffle_data(X)
+
+    # predict
+    batches = make_batches(nb_samples, batch_size)
+    for batch_index, (batch_start, batch_end) in enumerate(batches):
+        batch_logs = {}
+        batch_logs['batch'] = batch_index
+        batch_logs['size'] = batch_end - batch_start
+
+        # load the actual images; X only contains paths
+        X_batch = load_samples(X[batch_start:batch_end], batch_end - batch_start)
+        X_batch = X_batch.astype("float32") / 255
+        if normalize:
+            X_batch = X_batch - normalize[0] # mean
+            X_batch /= normalize[1] # std
+
+        predictions += [model.predict_classes(X_batch, verbose=verbose).tolist()]
+
+    predictions = np.hstack(predictions).tolist()
+
+    return predictions
+
+
+def calc_class_acc(model, X_test, y_test, nb_classes, normalize=None, batch_size=32, keys=['acc', 'avg_acc']):
+    log = {'match': np.zeros((nb_classes,)), 'count': np.zeros((nb_classes,))}
+
+    predictions = predict_on_batch(model, X_test, normalize=normalize, batch_size=batch_size)
+
+    for gt, p in zip(y_test, predictions):
+        log['count'][gt] += 1
+        if gt == p:
+            log['match'][gt] += 1
+
+    log['acc'] = np.array(log['match'] / log['count']).tolist()
+    log['avg_acc'] = np.mean(log['acc']).tolist()
+
+    log['match'] = log['match'].tolist()
+    log['count'] = log['count'].tolist()
+
+    result_log = {key: log[key] for key in keys}
+
+    return result_log

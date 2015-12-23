@@ -13,7 +13,7 @@ from keras.callbacks import EarlyStopping, LearningRateScheduler, CallbackList, 
 from keras.regularizers import l2
 from six.moves import range
 
-from sklearn.cross_validation import StratifiedKFold
+from sklearn.utils import compute_class_weight
 
 from ini_caltech101.dataset import caltech101, util
 from ini_caltech101.keras_extensions.constraints import zero
@@ -27,10 +27,12 @@ from ini_caltech101.keras_extensions.optimizers import INISGD
         THEANO_FLAGS=mode=FAST_RUN,device=gpu,floatX=float32 python caltech101_cnn.py
 '''
 
-# parameters
+##########################
+# GENERAL PARAMETERS
+##########################
 batch_size = 64
 nb_classes = 102
-nb_epoch = 10
+nb_epoch = 20
 
 shuffle_data = True
 normalize_data = True
@@ -38,34 +40,38 @@ batch_normalization = True
 
 b_constraint = zero() # None
 
-nb_cv_folds = 10 # cross val folds
-
 # shape of the image (SHAPE x SHAPE)
 shapex, shapey = 240, 180
 
 # the caltech101 images are RGB
 image_dimensions = 3
 
+##########################
+# DATA LOADING
+##########################
+
+print("Loading paths...")
+
 # path to image folder
 path = os.path.expanduser(os.path.join('~', '.ini_caltech101', 'img-gen-resized', '101_ObjectCategories'))
 
-
-print("Loading paths...")
 # X_test contain only paths to images
 (X_test, y_test) = util.load_paths(path, 'X_test.txt', 'y_test.txt')
 
-print("Doing {}-fold cross validation".format(nb_cv_folds))
-for cv_fold in range(nb_cv_folds):
+for cv_fold in [1]: # on which cross val folds to run
     print("fold {}".format(cv_fold))
 
-    experiment_name = '_bn_triangluar_cv{}_e{}'.format(cv_fold, nb_epoch)
+    experiment_name = '_testing_class-weight-auto_bn_triangluar_cv{}_e{}'.format(cv_fold, nb_epoch)
 
     # load cross val split
     (X_train, y_train), (X_val, y_val) = util.load_cv_split_paths(path, cv_fold)
 
+    class_weight = compute_class_weight('auto', range(nb_classes), y_train)
+
     if normalize_data:
-        print("Calculating mean and std...")
-        X_mean, X_std = util.calc_stats(X_train)
+        print("Load mean and std...")
+        X_mean, X_std = util.load_cv_stats(path, cv_fold)
+        normalize_data = (X_mean, X_std)
 
     nb_train_sample = X_train.shape[0]
     nb_val_sample = X_val.shape[0]
@@ -83,7 +89,10 @@ for cv_fold in range(nb_cv_folds):
         (X_val, y_val) = util.shuffle_data(X_val, y_val, seed=None)
         (X_test, y_test) = util.shuffle_data(X_test, y_test, seed=None)
 
-    # cnn architecture
+    ##########################
+    # MODEL BUILDING
+    ##########################
+
     print("Building model...")
 
     if batch_normalization:
@@ -152,6 +161,9 @@ for cv_fold in range(nb_cv_folds):
 
     #model.load_weights('results/2015-12-12_18.15.01_no-bn_lr-0.001_e20_img-gen_weights.hdf5')
 
+    ##########################
+    # TRAINING PREPARATIONS
+    ##########################
     callbacks = []
     history = INIHistory()
     callbacks += [history]
@@ -164,69 +176,16 @@ for cv_fold in range(nb_cv_folds):
     lrs = INILearningRateScheduler(schedule, mode='batch', logger=logger)
     callbacks += [lrs]
 
-    mcp = ModelCheckpoint('results/experiment' + experiment_name + '_epoch{epoch}_weights.hdf5', save_best_only=True)
-    callbacks += [mcp]
+    #mcp = ModelCheckpoint('results/experiment' + experiment_name + '_epoch{epoch}_weights.hdf5', save_best_only=True)
+    #callbacks += [mcp]
 
     #lrr = INILearningRateReducer(monitor='val_acc', improve='increase', decrease_factor=0.1, patience=3, stop=3, verbose=1)
     #callbacks += [lrr]
 
-
-    def run_batch(X, y, mode):
-        loss = []
-        acc = []
-        size = []
-
-        nb_samples = X.shape[0]
-
-        if mode is 'train' and shuffle_on_epoch_start:
-            X, y = util.shuffle_data(X, y)
-
-        # batch train / test
-        batches = make_batches(nb_samples, batch_size)
-        for batch_index, (batch_start, batch_end) in enumerate(batches):
-            batch_logs = {}
-            batch_logs['batch'] = batch_index
-            batch_logs['size'] = batch_end - batch_start
-
-            if mode is 'train':
-                callbacks.on_batch_begin(batch_index, batch_logs)
-
-            # load the actual images; X only contains paths
-            X_batch, y_batch = util.load_samples(X[batch_start:batch_end],
-                                                 y[batch_start:batch_end],
-                                                 batch_end - batch_start, shapex, shapey)
-            y_batch = util.to_categorical(y_batch, nb_classes)
-            X_batch = X_batch.astype("float32") / 255
-            if normalize_data:
-                X_batch = X_batch - X_mean
-                X_batch /= X_std
-
-            if mode is 'train':
-                outs = model.train_on_batch(X_batch, y_batch, accuracy=True)
-
-                if type(outs) != list:
-                    outs = [outs]
-                for l, o in zip(out_labels, outs):
-                    batch_logs[l] = o
-
-                callbacks.on_batch_end(batch_index, batch_logs)
-
-            elif mode is 'test':
-                outs = model.test_on_batch(X_batch, y_batch, accuracy=True)
-
-                # logging of the loss, acc and batch_size
-                loss += [float(outs[0])]
-                acc += [float(outs[1])]
-                size += [batch_end - batch_start]
-
-        return loss, acc, size
-
-
     callbacks = CallbackList(callbacks)
 
     shuffle_on_epoch_start = True
-    out_labels = ['loss', 'acc']
-    metrics = ['loss', 'acc', 'val_loss', 'val_acc']
+    metrics = ['loss', 'acc', 'val_loss', 'val_acc', 'val_class_acc']
     do_validation = True
 
     callbacks._set_model(model)
@@ -238,6 +197,10 @@ for cv_fold in range(nb_cv_folds):
         'do_validation': do_validation,
         'metrics': metrics,
     })
+
+    ##########################
+    # TRAINING
+    ##########################
     callbacks.on_train_begin()
 
     model.stop_training = False
@@ -248,31 +211,64 @@ for cv_fold in range(nb_cv_folds):
             X_train, y_train = util.shuffle_data(X_train, y_train)
 
         # train
-        run_batch(X_train, y_train, 'train')
+        util.train_on_batch(model, X_train, y_train, nb_classes,
+                            callbacks=callbacks,
+                            normalize=normalize_data,
+                            batch_size=batch_size,
+                            class_weight=class_weight,
+                            shuffle=False)
 
         epoch_logs = {}
-        # validation
-        if do_validation:
-            val_loss, val_acc, val_size = run_batch(X_val, y_val, 'test')
 
+        ##########################
+        # VALIDATION
+        ##########################
+        if do_validation:
+            # calculates the overall loss and accuracy
+            val_loss, val_acc, val_size = util.test_on_batch(model, X_val, y_val, nb_classes,
+                                                             normalize=normalize_data,
+                                                             batch_size=batch_size,
+                                                             shuffle=False)
             epoch_logs['val_loss'] = val_loss
             epoch_logs['val_acc'] = val_acc
             epoch_logs['val_size'] = val_size
+
+            # calculates the accuracy per class
+            class_acc = util.calc_class_acc(model, X_val, y_val, nb_classes,
+                                            normalize=normalize_data,
+                                            batch_size=batch_size,
+                                            keys=['acc'])
+            epoch_logs['val_class_acc'] = class_acc['acc']
 
         callbacks.on_epoch_end(epoch, epoch_logs)
         if model.stop_training:
             break
 
     training_end_logs = {}
-    # test
-    test_loss, test_acc, test_size = run_batch(X_test, y_test, 'test')
+
+    ##########################
+    # TESTING
+    ##########################
+    test_loss, test_acc, test_size = util.test_on_batch(model, X_test, y_test, nb_classes,
+                                                        normalize=normalize_data,
+                                                        batch_size=batch_size,
+                                                        shuffle=False)
 
     training_end_logs['test_loss'] = test_loss
     training_end_logs['test_acc'] = test_acc
     training_end_logs['test_size'] = test_size
 
+    class_acc = util.calc_class_acc(model, X_test, y_test, nb_classes,
+                                    normalize=normalize_data,
+                                    batch_size=batch_size,
+                                    keys=['acc'])
+    training_end_logs['test_class_acc'] = class_acc['acc']
+
     callbacks.on_train_end(logs=training_end_logs)
 
+    ##########################
+    # SAVING
+    ##########################
     dt = datetime.datetime.now()
     open('results/{:%Y-%m-%d_%H.%M.%S}{}_architecture.json'.format(dt, experiment_name), 'w').write(model.to_json())
     open('results/{:%Y-%m-%d_%H.%M.%S}{}_history.json'.format(dt, experiment_name), 'w').write(json.dumps(history.history))

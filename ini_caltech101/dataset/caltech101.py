@@ -65,12 +65,11 @@ def load_data(path="", resize=False, shapex=240, shapey=180,
             nb_train_samples = train_imgs_per_category
             nb_test_samples = test_imgs_per_category
 
-        train_data, train_labels = util.load_samples(fpaths, i,
-                                                nb_train_samples,
-                                                shapex, shapey)
-        test_data, test_labels = util.load_samples(fpaths[nb_train_samples:], i,
-                                              nb_test_samples,
-                                              shapex, shapey)
+        train_data = util.load_samples(fpaths, nb_train_samples)
+        train_labels = np.array([i for x in range(nb_train_samples)])
+
+        test_data = util.load_samples(fpaths[nb_train_samples:], nb_test_samples)
+        test_labels = np.array([i for x in range(nb_test_samples)])
 
         X_train[train_mem_ptr:train_mem_ptr + nb_train_samples, :, :, :] = train_data
         y_train[train_mem_ptr:train_mem_ptr + nb_train_samples] = train_labels

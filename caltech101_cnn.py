@@ -32,13 +32,13 @@ from ini_caltech101.keras_extensions.optimizers import INISGD
 ##########################
 batch_size = 64
 nb_classes = 102
-nb_epoch = 20
+nb_epoch = 10
 
 shuffle_data = True
 normalize_data = True
 batch_normalization = True
 
-b_constraint = None # zero() # None
+b_constraint = zero() # None
 
 # shape of the image (SHAPE x SHAPE)
 shapex, shapey = 240, 180
@@ -58,10 +58,10 @@ path = os.path.expanduser(os.path.join('~', '.ini_caltech101', 'img-gen-resized'
 # X_test contain only paths to images
 (X_test, y_test) = util.load_paths(path, 'X_test.txt', 'y_test.txt')
 
-for cv_fold in [1]: # on which cross val folds to run
+for cv_fold in [9]: # on which cross val folds to run
     print("fold {}".format(cv_fold))
 
-    experiment_name = '_class-weight-auto_no-bn_triangluar-0.0001-0.01_no-bconstraint_cv{}_e{}'.format(cv_fold, nb_epoch)
+    experiment_name = '_class-weight-auto_bn_triangluar_cv{}_e{}'.format(cv_fold, nb_epoch)
 
     # load cross val split
     (X_train, y_train), (X_val, y_val) = util.load_cv_split_paths(path, cv_fold)
@@ -172,7 +172,7 @@ for cv_fold in [1]: # on which cross val folds to run
     callbacks += [logger]
 
     step_size = 8 * (nb_train_sample / batch_size) # according to the paper: 2 - 8 times the iterations per epoch
-    schedule = TriangularLearningRate(lr=0.0001, step_size=step_size, max_lr=0.01)
+    schedule = TriangularLearningRate(lr=0.001, step_size=step_size, max_lr=0.02)
     lrs = INILearningRateScheduler(schedule, mode='batch', logger=logger)
     callbacks += [lrs]
 

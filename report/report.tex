@@ -272,15 +272,27 @@ w/o batch normalization, w/o data normalization
 with bn, with data normalization
 
 \begin{figure}[!h]
-	\includegraphics[width=\linewidth]{test.png}
-	\caption{Training/testing with batch normalization}
-	\label{fig:bn}
+	\includegraphics[width=\linewidth]{bn_bias-constraint.png}
+	\caption{Training/validation with batch normalization, with zero bias constraint}
+	\label{fig:bn_bias}
 \end{figure}
 
-\begin{figure}[!h]
-	\includegraphics[width=\linewidth]{test.png}
-	\caption{Training/testing without batch normalization}
-	\label{fig:no_bn}
+\begin{figure}
+	\includegraphics[width=\linewidth]{bn_no-bias-constraint.png}
+	\caption{Training/validation with batch normalization, without zero bias constraint}
+	\label{fig:bn_no-bias}
+\end{figure}
+
+\begin{figure}
+	\includegraphics[width=\linewidth]{no-bn_bias-constraint.png}
+	\caption{Training/validation without batch normalization, with zero bias constraint}
+	\label{fig:no-bn_bias}
+\end{figure}
+		
+\begin{figure}
+	\includegraphics[width=\linewidth]{no-bn_no-bias-constraint.png}
+	\caption{Training/validation without batch normalization, without zero bias constraint}
+	\label{fig:no-bn_no-bias}
 \end{figure}
 
 \section{Conclusion}

@@ -12,6 +12,7 @@ from keras.models import make_batches
 
 from ..keras_extensions.preprocessing.image import img_to_array, array_to_img, load_img, list_pictures
 
+
 def get_file(origin, datadir):
     if not os.path.exists(datadir):
         os.makedirs(datadir)
@@ -391,7 +392,8 @@ def load_cv_stats(path, cv_fold):
     return X_mean, X_std
 
 
-def train_on_batch(model, X, y, nb_classes, callbacks=None, normalize=None, batch_size=32, class_weight=None, shuffle=False):
+def train_on_batch(model, X, y, nb_classes,
+                   callbacks=None, normalize=None, batch_size=32, class_weight=None, class_acc=True, shuffle=False):
     loss = []
     acc = []
     size = []
@@ -423,12 +425,21 @@ def train_on_batch(model, X, y, nb_classes, callbacks=None, normalize=None, batc
             X_batch = X_batch - normalize[0] # mean
             X_batch /= normalize[1] # std
 
+        # calculates the overall loss and accuracy
         outs = model.train_on_batch(X_batch, y_batch, accuracy=True, class_weight=class_weight)
 
         if type(outs) != list:
             outs = [outs]
         for l, o in zip(out_labels, outs):
             batch_logs[l] = o
+
+        # calculates the accuracy per class
+        if class_acc:
+            result = calc_class_acc(model, X[batch_start:batch_end], y[batch_start:batch_end], nb_classes,
+                                    normalize=normalize,
+                                    batch_size=batch_size,
+                                    keys=['acc'])
+            batch_logs['class_acc'] = result['acc']
 
         if callbacks:
             callbacks.on_batch_end(batch_index, batch_logs)

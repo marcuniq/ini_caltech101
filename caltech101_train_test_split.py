@@ -7,7 +7,7 @@ import json
 from ini_caltech101.dataset import caltech101, util
 
 path = os.path.expanduser(os.path.join('~', '.ini_caltech101', 'img-gen-resized', '101_ObjectCategories'))
-test_size = 0.05
+test_size = 0.1
 stratify = True
 seed = 42
 
@@ -32,4 +32,4 @@ split_config = {'path': path,
                 'train_samples': nb_train_samples,
                 'test_samples': nb_test_samples}
 
-util.save_split_paths(path, X_train, y_train, X_test, y_test, split_config)
+util.save_train_test_split_paths(path, X_train, y_train, X_test, y_test, split_config)

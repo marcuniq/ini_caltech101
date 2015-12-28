@@ -61,7 +61,7 @@ path = os.path.expanduser(os.path.join('~', '.ini_caltech101', 'img-gen-resized'
 for cv_fold in [1]: # on which cross val folds to run
     print("fold {}".format(cv_fold))
 
-    experiment_name = '_conv1-9x9_cv{}_e{}'.format(cv_fold, nb_epoch)
+    experiment_name = '_bn_lr-0.005_cv{}_e{}'.format(cv_fold, nb_epoch)
 
     # load cross val split
     (X_train, y_train), (X_val, y_val) = util.load_cv_split_paths(path, cv_fold)
@@ -99,7 +99,7 @@ for cv_fold in [1]: # on which cross val folds to run
         weight_reg = 5e-4 # weight regularization value for l2
         dropout = False
         dropout_fc_layer = False
-        lr = 0.01
+        lr = 0.005
         lr_decay = 5e-4
 
     else:
@@ -109,7 +109,7 @@ for cv_fold in [1]: # on which cross val folds to run
         lr_decay = 5e-4
 
     model = Sequential()
-    conv1 = Convolution2D(128, 9, 9,
+    conv1 = Convolution2D(128, 5, 5,
                           subsample=(2, 2), # subsample = stride
                           b_constraint=b_constraint,
                           init='he_normal',
@@ -171,10 +171,10 @@ for cv_fold in [1]: # on which cross val folds to run
     logger = INIBaseLogger()
     callbacks += [logger]
 
-    step_size = 8 * (nb_train_sample / batch_size) # according to the paper: 2 - 8 times the iterations per epoch
-    schedule = TriangularLearningRate(lr=0.001, step_size=step_size, max_lr=0.02)
-    lrs = INILearningRateScheduler(schedule, mode='batch', logger=logger)
-    callbacks += [lrs]
+    #step_size = 8 * (nb_train_sample / batch_size) # according to the paper: 2 - 8 times the iterations per epoch
+    #schedule = TriangularLearningRate(lr=0.001, step_size=step_size, max_lr=0.02)
+    #lrs = INILearningRateScheduler(schedule, mode='batch', logger=logger)
+    #callbacks += [lrs]
 
     #mcp = ModelCheckpoint('results/experiment' + experiment_name + '_epoch{epoch}_weights.hdf5', save_best_only=True)
     #callbacks += [mcp]
@@ -270,6 +270,8 @@ for cv_fold in [1]: # on which cross val folds to run
     # SAVING
     ##########################
     dt = datetime.datetime.now()
-    open('results/{:%Y-%m-%d_%H.%M.%S}{}_architecture.json'.format(dt, experiment_name), 'w').write(model.to_json())
-    open('results/{:%Y-%m-%d_%H.%M.%S}{}_history.json'.format(dt, experiment_name), 'w').write(json.dumps(history.history))
+    with open('results/{:%Y-%m-%d_%H.%M.%S}{}_architecture.json'.format(dt, experiment_name), 'w') as f:
+        f.write(model.to_json())
+    with open('results/{:%Y-%m-%d_%H.%M.%S}{}_history.json'.format(dt, experiment_name), 'w') as f:
+        f.write(json.dumps(history.history))
     model.save_weights('results/{:%Y-%m-%d_%H.%M.%S}{}_weights.hdf5'.format(dt, experiment_name))

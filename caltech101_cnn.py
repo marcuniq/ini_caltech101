@@ -32,7 +32,7 @@ from ini_caltech101.keras_extensions.optimizers import INISGD
 ##########################
 batch_size = 64
 nb_classes = 102
-nb_epoch = 10
+nb_epoch = 20
 
 shuffle_data = True
 normalize_data = True
@@ -58,10 +58,10 @@ path = os.path.expanduser(os.path.join('~', '.ini_caltech101', 'img-gen-resized'
 # X_test contain only paths to images
 (X_test, y_test) = util.load_paths(path, 'X_test.txt', 'y_test.txt')
 
-for cv_fold in [9]: # on which cross val folds to run
+for cv_fold in [1]: # on which cross val folds to run
     print("fold {}".format(cv_fold))
 
-    experiment_name = '_class-weight-auto_bn_triangluar_cv{}_e{}'.format(cv_fold, nb_epoch)
+    experiment_name = '_conv1-9x9_cv{}_e{}'.format(cv_fold, nb_epoch)
 
     # load cross val split
     (X_train, y_train), (X_val, y_val) = util.load_cv_split_paths(path, cv_fold)
@@ -109,7 +109,7 @@ for cv_fold in [9]: # on which cross val folds to run
         lr_decay = 5e-4
 
     model = Sequential()
-    conv1 = Convolution2D(128, 5, 5,
+    conv1 = Convolution2D(128, 9, 9,
                           subsample=(2, 2), # subsample = stride
                           b_constraint=b_constraint,
                           init='he_normal',

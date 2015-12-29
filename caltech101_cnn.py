@@ -35,7 +35,7 @@ nb_classes = 102
 nb_epoch = 20
 
 shuffle_data = True
-normalize_data = True
+normalize_data = False
 batch_normalization = True
 
 b_constraint = zero() # None
@@ -61,7 +61,7 @@ path = os.path.expanduser(os.path.join('~', '.ini_caltech101', 'img-gen-resized'
 for cv_fold in [1]: # on which cross val folds to run
     print("fold {}".format(cv_fold))
 
-    experiment_name = '_bn_lr-0.005_cv{}_e{}'.format(cv_fold, nb_epoch)
+    experiment_name = '_bn_triangular_no-data-normalization_cv{}_e{}'.format(cv_fold, nb_epoch)
 
     # load cross val split
     (X_train, y_train), (X_val, y_val) = util.load_cv_split_paths(path, cv_fold)
@@ -171,10 +171,10 @@ for cv_fold in [1]: # on which cross val folds to run
     logger = INIBaseLogger()
     callbacks += [logger]
 
-    #step_size = 8 * (nb_train_sample / batch_size) # according to the paper: 2 - 8 times the iterations per epoch
-    #schedule = TriangularLearningRate(lr=0.001, step_size=step_size, max_lr=0.02)
-    #lrs = INILearningRateScheduler(schedule, mode='batch', logger=logger)
-    #callbacks += [lrs]
+    step_size = 8 * (nb_train_sample / batch_size) # according to the paper: 2 - 8 times the iterations per epoch
+    schedule = TriangularLearningRate(lr=0.001, step_size=step_size, max_lr=0.02)
+    lrs = INILearningRateScheduler(schedule, mode='batch', logger=logger)
+    callbacks += [lrs]
 
     #mcp = ModelCheckpoint('results/experiment' + experiment_name + '_epoch{epoch}_weights.hdf5', save_best_only=True)
     #callbacks += [mcp]

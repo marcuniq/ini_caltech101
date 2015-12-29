@@ -122,7 +122,7 @@ class TriangularLearningRate(LearningRateSchedule):
     """
         Cyclical Learning Rates, Paper: http://arxiv.org/pdf/1506.01186.pdf
     """
-    def __init__(self, lr=0.01, start=0, step_size=0, max_lr=0., *args, **kwargs):
+    def __init__(self, lr=0.01, start=0, step_size=0, max_lr=0., max_to_min=True, *args, **kwargs):
         super(TriangularLearningRate, self).__init__(lr=lr, start=start, **kwargs)
         self.__dict__.update(locals())
 
@@ -133,7 +133,10 @@ class TriangularLearningRate(LearningRateSchedule):
             if itr > 0:
                 x = float(itr - (2 * cycle - 1) * self.step_size)
                 x = x / self.step_size
-                return self.max_lr - (self.max_lr - self.lr) * max(0.0, (1.0 - abs(x))/cycle)
+                if self.max_to_min:
+                    return self.max_lr - (self.max_lr - self.lr) * max(0.0, (1.0 - abs(x))/cycle)
+                else:
+                    return self.lr + (self.max_lr - self.lr) * max(0.0, (1.0 - abs(x))/cycle)
 
         return current_lr
 

@@ -60,7 +60,7 @@ The task for this bachelor practical was to train a convolutional neural network
 \section{Image Classification on Caltech-101}
 This section will give a short introduction to the Caltech-101 dataset, the used methods and techniques.
 
-\subsection{Caltech-101}
+\subsection{Caltech-101} \label{sec:caltech101}
 Caltech-101 is a dataset of pictures of objects, which was collected in September 2003 by \citet{Fei-Fei2007} at the California Institute of Technology.
 Most categories have about 50 images, but the number ranges from 40 to 800 per category \cite{Fei-Fei2007}.
 Caltech-101 contains a total of 9'146 images, split between 101 distinct object categories (faces, watches, ants, pianos, etc.) and a background category \cite{Caltech101Wiki}.
@@ -72,7 +72,7 @@ Due to the fact that categories have vastly different number of images, the accu
 On an additional note, \cite{Fei-Fei2007} pointed out that if a fixed number of images per category is chosen, then the overall error rate should be reported.
 However, if all the available images are being used for testing, then the average error rate across categories should be reported.\\
 
-The state of the art classification on the Caltech-101 dataset has an accuracy of 91.44\% \cite{He2014}.
+The state-of-the-art classification on the Caltech-101 dataset has an accuracy of 91.44\% \cite{He2014}.
 
 
 \subsection{Convolutional Neural Network}
@@ -155,20 +155,22 @@ Using an image data generator \cite{keras}, we ended up with the following augme
 
 The created images were then resized again, but with the difference that the images were padded with the edge pixels to fill the needed aspect ratio.
 The pixel values were normalized to the range of (0, 1) after loading the images.
-Data standardization, subtracting the mean and dividing by the standard deviation, has sped up the training and was also applied.\\
+Data standardization, subtracting the mean and dividing by the standard deviation, was also applied.\\
 
 The generated images are available online and can be downloaded under \cite{UnternaehrerGenImg}.
 
 
 \subsection{Architecture}
-Our architectures were inspired by \citet{Simonyan2015}.
+Our architectures were inspired by \citet{Simonyan2015} and \citet{CS231nCNN}.
 However, due to the fact that the neural network will be converted into a spiking neural network, we had two constraints.
 The first constraint was that units must not have any bias.
 The second constraint had to do with performance: Since the network should be able to classify pictures near real-time, we limited the depth of our architecture to three convolutional and two fully connected layers.
 Obviously, when introducing batch normalization, there are more layers.
 Those additional layers should not have a high impact on the speed of classification though, since batch normalization is only a linear transformation.
 
-\begin{table}[!h]
+\Cref{tab:base-arch,tab:bn-arch,tab:no-bn-arch} show the used network architectures.
+
+\begin{table}[H]
 	\begin{center}
 		\begin{tabularx}{.5\linewidth}{|X|l|}
 			\hline \textbf{Layer type} & \textbf{Parameters} \\ 
@@ -193,7 +195,7 @@ Those additional layers should not have a high impact on the speed of classifica
 \end{table}
 
 
-\begin{table}[!h]
+\begin{table}[H]
 	\begin{center}
 		\begin{tabularx}{.5\linewidth}{|X|l|}
 			\hline \textbf{Layer type} & \textbf{Parameters} \\ 
@@ -220,7 +222,7 @@ Those additional layers should not have a high impact on the speed of classifica
 	\label{tab:bn-arch}
 \end{table}
 
-\begin{table}[!h]
+\begin{table}[H]
 	\begin{center}
 		\begin{tabularx}{.5\linewidth}{|X|l|}
 			\hline \textbf{Layer type} & \textbf{Parameters} \\ 
@@ -248,13 +250,18 @@ Those additional layers should not have a high impact on the speed of classifica
 	\label{tab:no-bn-arch}
 \end{table}
 
-\Cref{tab:base-arch,tab:bn-arch,tab:no-bn-arch} show the used network architectures.
+
 
 \subsection{Training}
 The splitting of the generated images into training and test samples was stratified, meaning that each class had 90\% in the training set and 10\% in the test set.
+That training set was then further split into 10 folds, such that cross-validation could be applied later on.
 
 Stochastic gradient descent was used as the optimizer, with Nesterov momentum of 0.9 and a learning rate decay of 5e-4.
 Batch size was 64 most of the time, but was decreased for some architecture configurations due to GPU memory overallocation.
+
+We applied a triangular learning rate schedule in order to speed up training as well as reduce the need for hyper-parameter optimization \cite{Smith2015}.
+In combination with a batch normalized network, the minimum learning rate was 0.001, the maximum learning rate was 0.02 and the step size was set to 8 times the number of iterations in an epoch.
+
 
 \subsection{Implementation Details}
 The neural network framework of choice was Keras \cite{keras}.
@@ -270,8 +277,13 @@ The source code for the entire bachelor practical can be found at \cite{Unternae
 
 \section{Results}
 After running many preliminary experiments, we have settled for the architectures shown in \cref{tab:bn-arch} (with batch normalization) and \cref{tab:no-bn-arch} (without batch normalization).
-Apart from creating a good classifier for the Caltech-101 dataset, we had specific experiments to run in mind, which we describe in the following sections.
-The last section shows the cross-validation of the best performing network, which also respects the needed constraints.
+
+Unfortunately, the high imbalance of the dataset was not considered in the preliminary experiments and \cref{app:imbalance} explains the mistakes made.
+
+Apart from creating a good classifier for the Caltech-101 dataset, we had specific experiments to run in mind, which we describe in \cref{sec:batch,sec:data,sec:kernel,sec:lr}.
+\Cref{sec:cv} shows the cross-validation of the best performing network, which also respects the needed constraints.
+
+
 
 \begin{table}[!h]
 	\begin{center}
@@ -290,9 +302,9 @@ The last section shows the cross-validation of the best performing network, whic
 	\caption{Experiment Results}
 	\label{tab:experiment-results}
 \end{table}
-\clearpage
 
-\subsection{Batch Normalization and Zero Bias Constraint}
+\clearpage
+\subsection{Batch Normalization and Zero Bias Constraint} \label{sec:batch}
 
 As we can see in \cref{fig:bn_bias,fig:bn_no-bias}, there is basically no difference in loss or accuracy when introducing the zero bias constraint in the case we train with the batch normalization architecture.
 However, comparing \cref{fig:no-bn_bias,fig:no-bn_no-bias}, the performance
@@ -324,7 +336,7 @@ However, comparing \cref{fig:no-bn_bias,fig:no-bn_no-bias}, the performance
 
 \clearpage
 
-\subsection{Data Standardization}
+\subsection{Data Standardization} \label{sec:data}
 
 We have trained the same network as the base line, but with the exception that no data standardization was applied.
 Data normalization, bringing the pixel values into the range of (0, 1), however, was applied.
@@ -340,9 +352,9 @@ This suggests that using batch normalization also eliminates the need to previou
 
 \clearpage
 
-\subsection{Convolutional Kernel Size}
+\subsection{Convolutional Kernel Size} \label{sec:kernel}
 
-In this experiment, we simply increased the kernel size in the first convolutional layer from 5x5 to 9x9. Comparing \cref{fig:bn_bias,fig:conv1-9x9} as well as the accomplished validation and test accuracies (\cref{tab:experiment-results}), no major difference can be seen.
+In this experiment, we simply increased the kernel size in the first convolutional layer from 5x5 to 9x9. Comparing \cref{fig:bn_bias,fig:conv1-9x9} as well as the accomplished results in \cref{tab:experiment-results}, no major difference can be seen.
 \begin{figure}[H]
 	\includegraphics[width=\linewidth]{conv1-9x9.png}
 	\caption{Increased kernel to 9x9 in first convolutional layer }
@@ -351,10 +363,10 @@ In this experiment, we simply increased the kernel size in the first convolution
 
 \clearpage
 
-\subsection{Triangular Learning Rate}
+\subsection{Triangular Learning Rate} \label{sec:lr}
 \citet{Smith2015} suggests to start the triangular learning rate schedule with the minimum, then increasing to the maximum, and decreasing again.
 However, one suggestion to accelerate batch normalized networks is to increase the learning rate decay \cite{Ioffe2015}.
-Thus, comparing \cref{fig:bn_bias,fig:triangular-min-to-max} shows that starting out with the maximum learning rate, then decreasing to the minimum is the preferred way when using a triangular learning rate schedule for a batch normalized network.
+Comparing \cref{fig:bn_bias,fig:triangular-min-to-max} and their according validation and test accuracies (\cref{tab:experiment-results}), this suggests that starting out with the maximum learning rate, then decreasing to the minimum is the preferred way when using a triangular learning rate schedule for a batch normalized network.
 
 \begin{figure}[H]
 	\includegraphics[width=\linewidth]{triangular-min-to-max.png}
@@ -364,9 +376,9 @@ Thus, comparing \cref{fig:bn_bias,fig:triangular-min-to-max} shows that starting
 
 \clearpage
 
-\subsection{Cross-Validation}
+\subsection{Cross-Validation} \label{sec:cv}
 
-We ran the batch normalized network architecture \cref{tab:bn-arch} on a 10-fold cross-validation.
+We ran the batch normalized network architecture (\cref{tab:bn-arch}) on a 10-fold cross-validation.
 The resulting mean validation accuracy was 82.21\%, while the mean test accuracy was 82.10\%.
 
 \begin{figure}[H]
@@ -377,10 +389,32 @@ The resulting mean validation accuracy was 82.21\%, while the mean test accuracy
 
 
 \section{Conclusion}
+In order to achieve a decent accuracy on a fairly deep neural network, having enough data is paramount.
+If not enough data is available, as in our case, coming up with a way to generate more data is probably one of the most important factors.
+
+Coming up with sensible network architectures is not easy.
+We relied on the expertise of several authors \cite{Simonyan2015,CS231nCNN}.
+More formal experiments should have been run in order to validate a good architecture fit for the Caltech-101 dataset and our special constraints.
+We were, however, misled by the very good results, which were due to the fact that data imbalance was not considered (\cref{app:imbalance}).
+
+
 enough data is important
 bn can speed up training time significantly
+
+The state-of-the-art classification on the Caltech-101 dataset has an accuracy of 91.44\% \cite{He2014}.
 
 
 \clearpage
 \bibliography{C:/Users/Marco/Documents/MendeleyBibtex/Bsc-Practical,websites}
+
+\appendix
+\section{Imbalanced Data} \label{app:imbalance}
+As we have already mentioned in \cref{sec:caltech101}, the dataset is highly imbalanced.
+Unfortunately, we have discovered only at a very late stage of this bachelor practical, that this imbalance was not considered in the numerous experiments we have already run.
+Thus, all previous experiments were rendered invalid by this mistake.
+
+We have developed a function, which calculates the accuracy on a per-category basis.
+The mean of those accuracies were then used as the overall accuracy, as \citet{Fei-Fei2007} suggest in order to normalize the performance across categories.
+Additionally, category weights were calculated and applied while training, such that the effects of the imbalance were less severe.
+
 \end{document}

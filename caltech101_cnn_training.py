@@ -6,42 +6,43 @@ import os
 import numpy as np
 #np.random.seed(42) # make keras deterministic
 
-from keras.models import Sequential, make_batches
+from keras.models import Sequential
 from keras.layers.core import Dense, Dropout, Activation, Flatten
 from keras.layers.convolutional import Convolution2D, MaxPooling2D, ZeroPadding2D
-from keras.callbacks import EarlyStopping, LearningRateScheduler, CallbackList, History, ModelCheckpoint
+from keras.callbacks import CallbackList, ModelCheckpoint
 from keras.regularizers import l2
 from six.moves import range
 
 from sklearn.utils import compute_class_weight
 
-from ini_caltech101.dataset import caltech101, util
+from ini_caltech101 import util
+from ini_caltech101.dataset import caltech101
 from ini_caltech101.keras_extensions.constraints import zero
 from ini_caltech101.keras_extensions.callbacks import INIBaseLogger, INILearningRateScheduler, INILearningRateReducer, INIHistory
 from ini_caltech101.keras_extensions.schedules import TriangularLearningRate
 from ini_caltech101.keras_extensions.normalization import BatchNormalization
 from ini_caltech101.keras_extensions.optimizers import INISGD
 '''
-    Train a (fairly simple) deep CNN on the Caltech101 images dataset.
+    Train a CNN on a data augmented version of the Caltech101 images dataset.
     GPU run command:
-        THEANO_FLAGS=mode=FAST_RUN,device=gpu,floatX=float32 python caltech101_cnn.py
+        THEANO_FLAGS=mode=FAST_RUN,device=gpu,floatX=float32 python caltech101_cnn_training.py
 '''
 
 ##########################
 # GENERAL PARAMETERS
 ##########################
 batch_size = 64
-nb_classes = 102
 nb_epoch = 20
+nb_classes = caltech101.config.nb_classes
 
 shuffle_data = True
 normalize_data = True
 batch_normalization = True
 
-b_constraint = zero() # None
+b_constraint = zero() # bias constraint: zero() or None
 
 # shape of the image (SHAPE x SHAPE)
-shapex, shapey = 240, 180
+image_width, image_height = 240, 180
 
 # the caltech101 images are RGB
 image_dimensions = 3
@@ -52,25 +53,29 @@ image_dimensions = 3
 
 print("Loading paths...")
 
+# download & untar or get local path
+base_path = caltech101.download(dataset='img-gen-resized')
+
 # path to image folder
-path = os.path.expanduser(os.path.join('~', '.ini_caltech101', 'img-gen-resized', '101_ObjectCategories'))
+base_path = os.path.join(base_path, caltech101.config.tar_inner_dirname)
 
 # X_test contain only paths to images
-(X_test, y_test) = util.load_paths(path, 'X_test.txt', 'y_test.txt')
+(X_test, y_test) = util.load_paths_from_files(base_path, 'X_test.txt', 'y_test.txt')
 
-for cv_fold in [1]: # on which cross val folds to run
+for cv_fold in [0]: # on which cross val folds to run
     print("fold {}".format(cv_fold))
 
     experiment_name = '_bn_triangular-minlr-to-maxlr_cv{}_e{}'.format(cv_fold, nb_epoch)
 
     # load cross val split
-    (X_train, y_train), (X_val, y_val) = util.load_cv_split_paths(path, cv_fold)
+    (X_train, y_train), (X_val, y_val) = util.load_cv_split_paths(base_path, cv_fold)
 
+    # compute class weights, since classes are highly imbalanced
     class_weight = compute_class_weight('auto', range(nb_classes), y_train)
 
     if normalize_data:
         print("Load mean and std...")
-        X_mean, X_std = util.load_cv_stats(path, cv_fold)
+        X_mean, X_std = util.load_cv_stats(base_path, cv_fold)
         normalize_data = (X_mean, X_std)
 
     nb_train_sample = X_train.shape[0]
@@ -110,11 +115,11 @@ for cv_fold in [1]: # on which cross val folds to run
 
     model = Sequential()
     conv1 = Convolution2D(128, 5, 5,
-                          subsample=(2, 2), # subsample = stride
+                          subsample=(2, 2),  # subsample = stride
                           b_constraint=b_constraint,
                           init='he_normal',
                           W_regularizer=l2(weight_reg),
-                          input_shape=(image_dimensions, shapex, shapey))
+                          input_shape=(image_dimensions, image_width, image_height))
     model.add(conv1)
     if batch_normalization:
         model.add(BatchNormalization(mode=1))
@@ -185,7 +190,7 @@ for cv_fold in [1]: # on which cross val folds to run
     callbacks = CallbackList(callbacks)
 
     shuffle_on_epoch_start = True
-    metrics = ['loss', 'acc', 'val_loss', 'val_acc', 'val_class_acc']
+    metrics = ['loss', 'acc', 'val_loss', 'val_acc', 'val_class_acc'] # show those at epoch end
     do_validation = True
 
     callbacks._set_model(model)

@@ -1,12 +1,9 @@
-from __future__ import absolute_import
-from __future__ import print_function
 import os
 import numpy as np
 np.random.seed(42) # make keras deterministic
 
-from ini_caltech101.dataset import caltech101, util
+from ini_caltech101.dataset import caltech101
 from ini_caltech101.keras_extensions.preprocessing.image import ImageDataGenerator
-
 
 datagen = ImageDataGenerator(
     featurewise_center=False,  # set input mean to 0 over the dataset
@@ -23,13 +20,7 @@ datagen = ImageDataGenerator(
 )
 
 
-# load the image paths
-print("Loading paths...")
-(X_train, y_train), (X_test, y_test) = caltech101.load_paths(shuffle=False)
+input_dir = os.path.abspath(os.path.join('datasets', 'original', '101_ObjectCategories'))
+output_dir = os.path.abspath(os.path.join('datasets', 'original-gen', '101_ObjectCategories'))
 
-print('X_train shape:', X_train.shape)
-print(X_train.shape[0], 'train samples')
-
-print("Generating new images...")
-for img_path in X_train:
-    util.generate_imgs(img_path, datagen)
+caltech101.generate_imgs(input_dir, output_dir, datagen)

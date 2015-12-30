@@ -23,8 +23,8 @@ Run caltech101_cnn_training.py, which downloads and untars the enhanced 'img-gen
     python caltech101_cnn_training.py
 
 ## Example images
-![original](http://www.googledrive.com/host/0B6t56IB_eb6hSkFNVnFoT3Jlbkk)
+![original](http://www.googledrive.com/host/0B6t56IB_eb6hbzlDX1RBeS00dW8)
 ![generated image 1](http://www.googledrive.com/host/0B6t56IB_eb6hSkFNVnFoT3Jlbkk)
-![generated image 2](http://www.googledrive.com/host/0B6t56IB_eb6hbzlDX1RBeS00dW8)
+![generated image 2](http://www.googledrive.com/host/0B6t56IB_eb6haTdfOG43c1ZhSDA)
 
 [More examples](https://drive.google.com/folderview?id=0B6t56IB_eb6hVFRGOFp3QVpaR2M&usp=sharing)

@@ -15,7 +15,7 @@
 \setlength{\marginparwidth}{1.5cm}
 \setlength{\parindent}{0cm}
 \setlength{\parskip}{0.15cm}
-\setlength{\textheight}{22cm}
+\setlength{\textheight}{24cm}
 \setlength{\oddsidemargin}{0cm}
 \setlength{\evensidemargin}{\oddsidemargin}
 \setlength{\topmargin}{0cm}
@@ -28,6 +28,7 @@
 
 \usepackage{cleveref}
 \usepackage{tabularx}
+\usepackage{float}
 
 \newcommand*{\nolink}[1]{%
 	\begin{NoHyper}#1\end{NoHyper}%
@@ -263,49 +264,117 @@ Most importantly, Keras seemed to provide almost all needed functionality out of
 Another relevant aspect, that lead to the decision to use Keras, was that model architectures are created with code.
 That made rapid prototyping and experimentation feasible.\\
 
-The networks were trained on a system equipped with a single NVIDIA GTX 970 GPU, and training the best performing net took only ???? to converge.\\
+The networks were trained on a system equipped with a single NVIDIA GTX 970 GPU.\\
 
 The source code for the entire bachelor practical can be found at \cite{UnternaehrerCode}.
 
 \section{Results}
-w/o batch normalization, w/o data normalization
-with bn, with data normalization
+After running many preliminary experiments, we have settled for the architectures shown in \cref{tab:bn-arch} (with batch normalization) and \cref{tab:no-bn-arch} (without batch normalization).
+Apart from creating a good classifier for the Caltech-101 dataset, we had specific experiments to run in mind, which we describe in the following sections.
+The last section shows the cross-validation of the best performing network, which also respects the needed constraints.
 
-\begin{figure}[!h]
+\begin{table}[!h]
+	\begin{center}
+		\begin{tabularx}{\linewidth}{|X|l|l|}
+			\hline \textbf{Experiment} & \textbf{Validation Acc} & \textbf{Test Acc}\\ 
+			\hline base line - batch normalization, with zero bias constraint, \cref{fig:bn_bias} & 82.66\% & 82.41\% \\
+			\hline batch normalization, without zero bias constraint, \cref{fig:bn_no-bias} & 82.92\% & 82.54\% \\
+			\hline no batch normalization, with zero bias constraint, \cref{fig:no-bn_bias} & 73.04\% & 73.98\% \\
+			\hline no batch normalization, without zero bias constraint, \cref{fig:no-bn_no-bias} & 78.09\% & 78.26\% \\
+			\hline no data standardization, \cref{fig:bn_no-data-standardization} & 82.93\% & 81.86\% \\
+			\hline increased kernel to 9x9 in first convolutional layer, \cref{fig:conv1-9x9} & 82.99\% & 82.23\% \\
+			\hline triangular learning rate schedule, start with minimum lr, \cref{fig:triangular-min-to-max} & 77.91\% & 77.40\% \\
+			\hline
+		\end{tabularx}
+	\end{center}
+	\caption{Experiment Results}
+	\label{tab:experiment-results}
+\end{table}
+\clearpage
+
+\subsection{Batch Normalization and Zero Bias Constraint}
+
+As we can see in \cref{fig:bn_bias,fig:bn_no-bias}, there is basically no difference in loss or accuracy when introducing the zero bias constraint in the case we train with the batch normalization architecture.
+However, comparing \cref{fig:no-bn_bias,fig:no-bn_no-bias}, the performance
+
+
+\begin{figure}[H]
 	\includegraphics[width=\linewidth]{bn_bias-constraint.png}
-	\caption{Training/validation with batch normalization, with zero bias constraint}
+	\caption{Base line - batch normalization, with zero bias constraint}
 	\label{fig:bn_bias}
 \end{figure}
 
-\begin{figure}
+\begin{figure}[H]
 	\includegraphics[width=\linewidth]{bn_no-bias-constraint.png}
-	\caption{Training/validation with batch normalization, without zero bias constraint}
+	\caption{Batch normalization, without zero bias constraint}
 	\label{fig:bn_no-bias}
 \end{figure}
 
-\begin{figure}
+\begin{figure}[H]
 	\includegraphics[width=\linewidth]{no-bn_bias-constraint.png}
-	\caption{Training/validation without batch normalization, with zero bias constraint}
+	\caption{No batch normalization, with zero bias constraint}
 	\label{fig:no-bn_bias}
 \end{figure}
-		
-\begin{figure}
+
+\begin{figure}[H]
 	\includegraphics[width=\linewidth]{no-bn_no-bias-constraint.png}
-	\caption{Training/validation without batch normalization, without zero bias constraint}
+	\caption{No batch normalization, without zero bias constraint}
 	\label{fig:no-bn_no-bias}
 \end{figure}
 
-\begin{figure}
+\clearpage
+
+\subsection{Data Standardization}
+
+We have trained the same network as the base line, but with the exception that no data standardization was applied.
+Data normalization, bringing the pixel values into the range of (0, 1), however, was applied.
+Comparing experiments \cref{fig:bn_bias,fig:bn_no-data-standardization} shows that there is virtually no difference in the behavior of the networks.
+Also, from \cref{tab:experiment-results} it can be seen that the validation and test accuracies are within a very small range.
+This suggests that using batch normalization also eliminates the need to previously standardize the data to have zero mean and unit standard deviation.
+
+\begin{figure}[H]
+	\includegraphics[width=\linewidth]{no-data-standardization.png}
+	\caption{No data standardization }
+	\label{fig:bn_no-data-standardization}
+\end{figure}
+
+\clearpage
+
+\subsection{Convolutional Kernel Size}
+
+In this experiment, we simply increased the kernel size in the first convolutional layer from 5x5 to 9x9. Comparing \cref{fig:bn_bias,fig:conv1-9x9} as well as the accomplished validation and test accuracies (\cref{tab:experiment-results}), no major difference can be seen.
+\begin{figure}[H]
 	\includegraphics[width=\linewidth]{conv1-9x9.png}
 	\caption{Increased kernel to 9x9 in first convolutional layer }
 	\label{fig:conv1-9x9}
 \end{figure}
 
-\begin{figure}
+\clearpage
+
+\subsection{Triangular Learning Rate}
+\citet{Smith2015} suggests to start the triangular learning rate schedule with the minimum, then increasing to the maximum, and decreasing again.
+However, one suggestion to accelerate batch normalized networks is to increase the learning rate decay \cite{Ioffe2015}.
+Thus, comparing \cref{fig:bn_bias,fig:triangular-min-to-max} shows that starting out with the maximum learning rate, then decreasing to the minimum is the preferred way when using a triangular learning rate schedule for a batch normalized network.
+
+\begin{figure}[H]
+	\includegraphics[width=\linewidth]{triangular-min-to-max.png}
+	\caption{Triangular Learning Rate Schedule, start with minimum lr }
+	\label{fig:triangular-min-to-max}
+\end{figure}
+
+\clearpage
+
+\subsection{Cross-Validation}
+
+We ran the batch normalized network architecture \cref{tab:bn-arch} on a 10-fold cross-validation.
+The resulting mean validation accuracy was 82.21\%, while the mean test accuracy was 82.10\%.
+
+\begin{figure}[H]
 	\includegraphics[width=\linewidth]{cross-val.png}
 	\caption{Cross-Validation}
 	\label{fig:cross-val}
 \end{figure}
+
 
 \section{Conclusion}
 enough data is important

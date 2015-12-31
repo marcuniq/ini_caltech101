@@ -4,7 +4,7 @@ from __future__ import print_function
 import numpy as np
 from keras.models import make_batches
 
-from .util import shuffle_data, to_categorical
+from .misc import shuffle_data, to_categorical
 from .loading import load_samples
 from .statistics import calc_class_acc
 

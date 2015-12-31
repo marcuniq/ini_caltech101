@@ -62,10 +62,10 @@ base_path = os.path.join(base_path, caltech101.config.tar_inner_dirname)
 # X_test contain only paths to images
 (X_test, y_test) = util.load_paths_from_files(base_path, 'X_test.txt', 'y_test.txt')
 
-for cv_fold in [0]: # on which cross val folds to run
+for cv_fold in [0]: # on which cross val folds to run; cant loop over several folds due to some bug
     print("fold {}".format(cv_fold))
 
-    experiment_name = '_bn_triangular-minlr-to-maxlr_cv{}_e{}'.format(cv_fold, nb_epoch)
+    experiment_name = '_bn_triangular_cv{}_e{}'.format(cv_fold, nb_epoch)
 
     # load cross val split
     (X_train, y_train), (X_val, y_val) = util.load_cv_split_paths(base_path, cv_fold)
@@ -177,7 +177,7 @@ for cv_fold in [0]: # on which cross val folds to run
     callbacks += [logger]
 
     step_size = 8 * (nb_train_sample / batch_size) # according to the paper: 2 - 8 times the iterations per epoch
-    schedule = TriangularLearningRate(lr=0.001, step_size=step_size, max_lr=0.02, max_to_min=False)
+    schedule = TriangularLearningRate(lr=0.001, step_size=step_size, max_lr=0.02, max_to_min=True)
     lrs = INILearningRateScheduler(schedule, mode='batch', logger=logger)
     callbacks += [lrs]
 

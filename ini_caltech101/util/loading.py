@@ -6,7 +6,7 @@ import os
 import numpy as np
 
 from ..keras_extensions.preprocessing.image import list_pictures
-from .util import make_relative_path
+from .misc import make_relative_path
 
 from ..keras_extensions.preprocessing.image import load_img
 

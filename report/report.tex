@@ -15,7 +15,7 @@
 \setlength{\marginparwidth}{1.5cm}
 \setlength{\parindent}{0cm}
 \setlength{\parskip}{0.15cm}
-\setlength{\textheight}{24cm}
+\setlength{\textheight}{25cm}
 \setlength{\oddsidemargin}{0cm}
 \setlength{\evensidemargin}{\oddsidemargin}
 \setlength{\topmargin}{0cm}
@@ -306,8 +306,8 @@ Apart from creating a good classifier for the Caltech-101 dataset, we had specif
 \clearpage
 \subsection{Batch Normalization and Zero Bias Constraint} \label{sec:batch}
 
-As we can see in \cref{fig:bn_bias,fig:bn_no-bias}, there is basically no difference in loss or accuracy when introducing the zero bias constraint in the case we train with the batch normalization architecture.
-However, comparing \cref{fig:no-bn_bias,fig:no-bn_no-bias}, the performance
+As we can see in \cref{fig:bn_bias,fig:bn_no-bias}, there is basically no difference in loss or accuracy when introducing the zero bias constraint in the case we train with the batch normalization architecture (\cref{tab:bn-arch}).
+However, comparing \cref{fig:no-bn_bias,fig:no-bn_no-bias} indicates that the zero bias constraint has quite an impact on training speed as well as the resulting validation and test accuracies (see \cref{tab:experiment-results}).
 
 
 \begin{figure}[H]
@@ -354,7 +354,7 @@ This suggests that using batch normalization also eliminates the need to previou
 
 \subsection{Convolutional Kernel Size} \label{sec:kernel}
 
-In this experiment, we simply increased the kernel size in the first convolutional layer from 5x5 to 9x9. Comparing \cref{fig:bn_bias,fig:conv1-9x9} as well as the accomplished results in \cref{tab:experiment-results}, no major difference can be seen.
+In this experiment, we simply increased the kernel size in the first convolutional layer from 5x5 to 9x9. Comparing \cref{fig:bn_bias,fig:conv1-9x9} as well as the accomplished results in \cref{tab:experiment-results} indicates that the kernel size has no major impact on the performance.
 \begin{figure}[H]
 	\includegraphics[width=\linewidth]{conv1-9x9.png}
 	\caption{Increased kernel to 9x9 in first convolutional layer }
@@ -389,19 +389,19 @@ The resulting mean validation accuracy was 82.21\%, while the mean test accuracy
 
 
 \section{Conclusion}
-In order to achieve a decent accuracy on a fairly deep neural network, having enough data is paramount.
-If not enough data is available, as in our case, coming up with a way to generate more data is probably one of the most important factors.
+In order to achieve a decent accuracy on a fairly deep neural network, having enough data is important \cite{Domingos2014}.
+If not enough data is available, as in our case, coming up with a way to generate more data is recommended \cite{Plankton2015}.
 
-Coming up with sensible network architectures is not easy.
-We relied on the expertise of several authors \cite{Simonyan2015,CS231nCNN}.
-More formal experiments should have been run in order to validate a good architecture fit for the Caltech-101 dataset and our special constraints.
-We were, however, misled by the very good results, which were due to the fact that data imbalance was not considered (\cref{app:imbalance}).
+Creating sensible network architectures is not easy.
+We relied on the expertise of several authors \cite{Simonyan2015,CS231nCNN}, which lead us to the base architecture described in \cref{tab:base-arch}.
+
+Batch normalization can speed up training significantly \cite{Ioffe2015}.
+In this work, we have shown that batch normalization is outperforming non-batch-normalized models, especially if we have a zero bias constraint.
+Hence, we recommend to use batch normalization whenever the zero bias constraint is needed.\\
 
 
-enough data is important
-bn can speed up training time significantly
-
-The state-of-the-art classification on the Caltech-101 dataset has an accuracy of 91.44\% \cite{He2014}.
+Future work should focus on the performance impact of an additional convolutional layer as well as a running more hyper-parameter optimization experiments.
+These methods will hopefully lead to getting closer to the state-of-the-art accuracy for the Caltech-101 dataset of 91.44\% \cite{He2014}.
 
 
 \clearpage
@@ -416,5 +416,94 @@ Thus, all previous experiments were rendered invalid by this mistake.
 We have developed a function, which calculates the accuracy on a per-category basis.
 The mean of those accuracies were then used as the overall accuracy, as \citet{Fei-Fei2007} suggest in order to normalize the performance across categories.
 Additionally, category weights were calculated and applied while training, such that the effects of the imbalance were less severe.
+
+
+\subsection{Results}
+Below we show some experiments, which could be of interest, even though the validation and test accuracies are not considering the imbalance of the categories and thus overconfident.
+
+\subsubsection{Dropout}
+Comparing the training and the validation accuracy in \cref{fig:app_dropout_base}, it seemed that the network is overfitting (architecture see \cref{tab:bn-arch}).
+To circumvent this, we ran an experiment, where we introduced dropout (with probability 0.5) between the fully connected layer (see \cref{fig:app_dropout_exp}).
+No significant increase in the validation and test accuracies was the result of this experiment (see \cref{tab:app_dropout_experiment-results}).
+\begin{table}[!h]
+	\begin{center}
+		\begin{tabularx}{\linewidth}{|X|l|l|}
+			\hline \textbf{Experiment} & \textbf{Validation Acc*} & \textbf{Test Acc*}\\ 
+			\hline base line, \cref{fig:app_dropout_base} & 88.08\% & 88.20\% \\
+			\hline dropout (0.5) between fully connected layers, \cref{fig:app_dropout_exp} & 88.44\% & 88.30\% \\
+			\hline
+		\end{tabularx}
+	\end{center}
+	\caption{Dropout experiment results - Not considering imbalance of categories}
+	\label{tab:app_dropout_experiment-results}
+\end{table}
+\begin{figure}[H]
+	\includegraphics[width=\linewidth]{appendix-bn_triangular_e20.png}
+	\caption{Base line for dropout}
+	\label{fig:app_dropout_base}
+\end{figure}
+
+\begin{figure}[H]
+	\includegraphics[width=\linewidth]{appendix-bn_triangular_dropout-fc_e20.png}
+	\caption{Dropout (0.5) between fully connected layers }
+	\label{fig:app_dropout_exp}
+\end{figure}
+
+
+\subsubsection{Maxpooling}
+Running a quick experiment (\cref{fig:app_maxp_exp}), where the maxpooling after the first convolutional layer was removed, has shown that the accuracies turn out much worse (see \cref{tab:app_maxp_experiment-results}).
+\begin{table}[!h]
+	\begin{center}
+		\begin{tabularx}{\linewidth}{|X|l|l|}
+			\hline \textbf{Experiment} & \textbf{Validation Acc*} & \textbf{Test Acc*}\\ 
+			\hline base line, \cref{fig:app_maxp_base} & 81.36\% & 84.30\% \\
+			\hline no maxpooling after conv1, \cref{fig:app_maxp_exp} & 73.30\% & 74.27\% \\
+			\hline
+		\end{tabularx}
+	\end{center}
+	\caption{Maxpooling experiment results - Not considering imbalance of categories}
+	\label{tab:app_maxp_experiment-results}
+\end{table}
+\begin{figure}[H]
+	\includegraphics[width=\linewidth]{{appendix-bn_lr-0.02_e4}.png}
+	\caption{Base line for maxpooling experiment }
+	\label{fig:app_maxp_base}
+\end{figure}
+
+\begin{figure}[H]
+	\includegraphics[width=\linewidth]{{appendix-bn_lr-0.02_no-maxpooling1_e4}.png}
+	\caption{No maxpooling after conv1 }
+	\label{fig:app_maxp_exp}
+\end{figure}
+
+
+\subsubsection{Batch Normalization}
+For this experiment, we have used the architectures described in \cref{tab:bn-arch,tab:no-bn-arch} and training was done with a fixed learning rate of 0.005.
+Comparing \cref{fig:app_bn_base,fig:app_bn_exp} shows that the network converges extremely fast when using batch normalization but settles around the 83\% accuracy mark, while the non-batch-normalized model keeps improving.
+We assume that the learning rate decay was not increasing fast enough, as \citet{Ioffe2015} recommend.
+\begin{table}[!h]
+	\begin{center}
+		\begin{tabularx}{\linewidth}{|X|l|l|}
+			\hline \textbf{Experiment} & \textbf{Validation Acc*} & \textbf{Test Acc*}\\ 
+			\hline base line, lr 0.005, \cref{fig:app_bn_base} & 83.36\% & 83.62\% \\
+			\hline no batch normalization, \cref{fig:app_bn_exp} & 84.03\% & 84.00\% \\
+			\hline
+		\end{tabularx}
+	\end{center}
+	\caption{Batch normalization experiment results - Not considering imbalance of categories}
+	\label{tab:app_bn_experiment-results}
+\end{table}
+\begin{figure}[H]
+	\includegraphics[width=\linewidth]{{appendix-bn_lr-0.005_e40}.png}
+	\caption{Base line for batch normalization experiment}
+	\label{fig:app_bn_base}
+\end{figure}
+
+\begin{figure}[H]
+	\includegraphics[width=\linewidth]{{appendix-no-bn_lr-0.005_e40}.png}
+	\caption{No batch normalization }
+	\label{fig:app_bn_exp}
+\end{figure}
+
 
 \end{document}

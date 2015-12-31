@@ -7,7 +7,7 @@ import os
 import numpy as np
 from sklearn.cross_validation import StratifiedKFold, KFold
 
-from ini_caltech101.util.loading import load_paths_from_files
+from .loading import load_paths_from_files
 
 
 def make_cv_split(X_train, y_train, nb_folds=10, stratify=True, seed=None):

@@ -6,7 +6,6 @@ from keras.models import make_batches
 
 from .misc import shuffle_data, to_categorical
 from .loading import load_samples
-from .statistics import calc_class_acc
 
 
 def train_on_batch(model, X, y, nb_classes,
@@ -129,3 +128,24 @@ def predict_on_batch(model, X, normalize=None, batch_size=32, shuffle=False, ver
     predictions = np.hstack(predictions).tolist()
 
     return predictions
+
+
+def calc_class_acc(model, X_test, y_test, nb_classes, normalize=None, batch_size=32, keys=['acc', 'avg_acc']):
+    log = {'match': np.zeros((nb_classes,)), 'count': np.zeros((nb_classes,))}
+
+    predictions = predict_on_batch(model, X_test, normalize=normalize, batch_size=batch_size)
+
+    for gt, p in zip(y_test, predictions):
+        log['count'][gt] += 1
+        if gt == p:
+            log['match'][gt] += 1
+
+    log['acc'] = np.array(log['match'] / log['count']).tolist()
+    log['avg_acc'] = np.mean(log['acc']).tolist()
+
+    log['match'] = log['match'].tolist()
+    log['count'] = log['count'].tolist()
+
+    result_log = {key: log[key] for key in keys}
+
+    return result_log

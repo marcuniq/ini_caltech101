@@ -11,7 +11,6 @@ from keras.layers.core import Dense, Dropout, Activation, Flatten
 from keras.layers.convolutional import Convolution2D, MaxPooling2D, ZeroPadding2D
 from keras.callbacks import CallbackList, ModelCheckpoint
 from keras.regularizers import l2
-from six.moves import range
 
 from sklearn.utils import compute_class_weight
 

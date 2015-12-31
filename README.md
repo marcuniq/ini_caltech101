@@ -16,6 +16,10 @@ To get a local copy of the code, clone it using git:
     git clone https://github.com/marcuniq/ini_caltech101.git
     cd ini_caltech101
 
+Make sure you have the bleeding edge version of Theano, or run
+
+    pip install --upgrade --no-deps git+git://github.com/Theano/Theano.git
+
 Next, install the package. Use 'develop' instead of 'install' if you consider changing package code
 
     python setup.py develop

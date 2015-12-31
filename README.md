@@ -24,11 +24,11 @@ Next, install the package. Use 'develop' instead of 'install' if you consider ch
 
     python setup.py develop
     
-Run train.sh (sets proper theano env flags), which download and untar the enhanced 'img-gen-resized' dataset, then starts training.
+Run train.sh (sets proper theano env flags), which downloads and untars the 'img-gen-resized' dataset, then starts training.
 
     ./train.sh
 
-## Example of the enhanced images
+## Example of the generated images in the 'img-gen-resized' dataset
 ![original](http://www.googledrive.com/host/0B6t56IB_eb6hbzlDX1RBeS00dW8)
 ![generated image 1](http://www.googledrive.com/host/0B6t56IB_eb6hSkFNVnFoT3Jlbkk)
 ![generated image 2](http://www.googledrive.com/host/0B6t56IB_eb6hejFXVVRTaGFYM2s)
